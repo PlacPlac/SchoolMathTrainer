@@ -1,0 +1,174 @@
+﻿<UserControl x:Class="StudentApp.Views.MyResultsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             mc:Ignorable="d">
+    <Border Style="{StaticResource CardBorderStyle}"
+            Margin="12"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      CanContentScroll="False"
+                      Padding="0">
+            <Grid Margin="0"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.5*" />
+                    <ColumnDefinition Width="28" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            Margin="0,0,0,4">
+                    <TextBlock Text="M&#x16F;j v&#xFD;sledek" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="{Binding StudentName, StringFormat=P&#x159;ehled pro &#x17E;&#xE1;ka: {0}}" Style="{StaticResource SubtitleStyle}" />
+                    <TextBlock Text="{Binding LastActivity, StringFormat=Posledn&#xED; aktivita: {0}}" FontSize="16" Foreground="#665B4D" />
+
+                    <UniformGrid Margin="0,20,0,20" Columns="2">
+                        <Border Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Spr&#xE1;vn&#x11B;" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="{Binding CorrectAnswers}" Style="{StaticResource MetricValueStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="&#x160;patn&#x11B;" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="{Binding IncorrectAnswers}" Style="{StaticResource MetricValueStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Celkem" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="{Binding TotalAnswers}" Style="{StaticResource MetricValueStyle}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource MetricCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="&#xDA;sp&#x11B;&#x161;nost" Style="{StaticResource MetricLabelStyle}" />
+                                <TextBlock Text="{Binding AccuracyPercent, StringFormat={}{0:F1} %}" Style="{StaticResource MetricValueStyle}" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+
+                    <TextBlock Text="V&#xFD;voj &#xFA;sp&#x11B;&#x161;nosti v &#x10D;ase" Style="{StaticResource SectionTitleStyle}" />
+                    <ScrollViewer Margin="0,10,0,20"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  CanContentScroll="False">
+                        <ItemsControl ItemsSource="{Binding AccuracyTrend}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="58"
+                                                Margin="6,0"
+                                                VerticalAlignment="Bottom">
+                                        <TextBlock Text="{Binding Value, StringFormat={}{0}%}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,0,0,6"
+                                                   FontWeight="Bold"
+                                                   FontSize="13"
+                                                   Foreground="{StaticResource AccentBrush}" />
+                                        <Border Height="{Binding BarHeight}"
+                                                Background="{StaticResource AccentBrush}"
+                                                CornerRadius="10"
+                                                VerticalAlignment="Bottom" />
+                                        <TextBlock Text="{Binding Label}"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,6,0,0"
+                                                   FontSize="11"
+                                                   Foreground="#665B4D"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <TextBlock Text="&#xDA;sp&#x11B;&#x161;nost po hr&#xE1;ch" Style="{StaticResource SectionTitleStyle}" />
+                    <DataGrid ItemsSource="{Binding SessionPerformance}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              IsReadOnly="True"
+                              Margin="0,10,0,0"
+                              HeadersVisibility="Column"
+                              HorizontalAlignment="Stretch"
+                              MinHeight="220">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Re&#x17E;im" Binding="{Binding LearningModeDisplay}" Width="120" />
+                            <DataGridTextColumn Header="&#x10C;as" Binding="{Binding CompletedAtDisplay}" Width="150" />
+                            <DataGridTextColumn Header="Spr&#xE1;vn&#x11B;" Binding="{Binding CorrectAnswers}" Width="90" />
+                            <DataGridTextColumn Header="&#x160;patn&#x11B;" Binding="{Binding IncorrectAnswers}" Width="90" />
+                            <DataGridTextColumn Header="&#xDA;sp&#x11B;&#x161;nost" Binding="{Binding AccuracyPercent, StringFormat={}{0:F1} %}" Width="120" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Margin="0,0,0,4"
+                            VerticalAlignment="Top">
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Za&#x10D;&#xE1;te&#x10D;n&#xED;k" Style="{StaticResource MetricLabelStyle}" />
+                            <ProgressBar Height="26" Maximum="100" Value="{Binding BeginnerAccuracy}" />
+                            <TextBlock Margin="0,12,0,0" Text="{Binding BeginnerAccuracy, StringFormat={}{0:F1} %}" FontSize="24" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Pokro&#x10D;il&#xFD;" Style="{StaticResource MetricLabelStyle}" />
+                            <ProgressBar Height="26" Maximum="100" Value="{Binding AdvancedAccuracy}" />
+                            <TextBlock Margin="0,12,0,0" Text="{Binding AdvancedAccuracy, StringFormat={}{0:F1} %}" FontSize="24" FontWeight="Bold" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Zlep&#x161;en&#xED; oproti p&#x159;edchoz&#xED;m hr&#xE1;m" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="{Binding Improvement, StringFormat={}{0:F1} bodu}" Style="{StaticResource MetricValueStyle}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Trend za&#x10D;&#xE1;te&#x10D;n&#xED;ka" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="{Binding BeginnerTrendSummary}"
+                                       Margin="0,8,0,0"
+                                       FontSize="17"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource AccentBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Trend pokro&#x10D;il&#xE9;ho" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="{Binding AdvancedTrendSummary}"
+                                       Margin="0,8,0,0"
+                                       FontSize="17"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource AccentBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource MetricCardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="Srovn&#xE1;n&#xED; re&#x17E;im&#x16F;" Style="{StaticResource MetricLabelStyle}" />
+                            <TextBlock Text="{Binding ComparisonSummary}"
+                                       Margin="0,8,0,0"
+                                       FontSize="17"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource AccentBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Border>
+</UserControl>

@@ -1,0 +1,176 @@
+<UserControl x:Class="StudentApp.Views.BeginnerQuizView"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             mc:Ignorable="d">
+    <Border Style="{StaticResource CardBorderStyle}"
+            Margin="8"
+            Padding="14"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+        <Grid MaxWidth="820"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Stretch">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Začátečník"
+                               Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding StudentName, StringFormat=Aktivní žák: {0}}"
+                               Style="{StaticResource SubtitleStyle}"
+                               VerticalAlignment="Center"
+                               Margin="18,4,0,0" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding ScoreLine}"
+                               FontSize="17"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource AccentBrush}"
+                               VerticalAlignment="Center"
+                               Margin="18,4,0,0" />
+                </Grid>
+
+                <StackPanel Grid.Row="1"
+                            Margin="0,2,0,6"
+                            HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding Expression}"
+                               Style="{StaticResource BigEquationStyle}"
+                               FontSize="34" />
+                    <TextBlock Text="{Binding FeedbackMessage}"
+                               HorizontalAlignment="Center"
+                               FontSize="15"
+                               Foreground="{StaticResource AccentBrush}"
+                               TextAlignment="Center"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="2"
+                           Text="Vyber jednu odpověď."
+                           Style="{StaticResource SubtitleStyle}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,8" />
+
+                <Border Grid.Row="3"
+                        Background="#66FFFFFF"
+                        CornerRadius="22"
+                        Padding="8"
+                        MinHeight="152"
+                        MinWidth="540"
+                        MaxWidth="640"
+                        HorizontalAlignment="Center">
+                    <UniformGrid Columns="2"
+                                 Rows="2">
+                        <Button Margin="6"
+                                Padding="8"
+                                Height="76"
+                                FontSize="20"
+                                FontWeight="Bold"
+                                Content="{Binding AnswerOption1}"
+                                Command="{Binding SubmitAnswerCommand}"
+                                CommandParameter="{Binding AnswerOption1}"
+                                IsEnabled="{Binding IsRoundActive}"
+                                Style="{StaticResource AnswerButtonStyle}" />
+                        <Button Margin="6"
+                                Padding="8"
+                                Height="76"
+                                FontSize="20"
+                                FontWeight="Bold"
+                                Content="{Binding AnswerOption2}"
+                                Command="{Binding SubmitAnswerCommand}"
+                                CommandParameter="{Binding AnswerOption2}"
+                                IsEnabled="{Binding IsRoundActive}"
+                                Style="{StaticResource AnswerButtonStyle}" />
+                        <Button Margin="6"
+                                Padding="8"
+                                Height="76"
+                                FontSize="20"
+                                FontWeight="Bold"
+                                Content="{Binding AnswerOption3}"
+                                Command="{Binding SubmitAnswerCommand}"
+                                CommandParameter="{Binding AnswerOption3}"
+                                IsEnabled="{Binding IsRoundActive}"
+                                Style="{StaticResource AnswerButtonStyle}" />
+                        <Button Margin="6"
+                                Padding="8"
+                                Height="76"
+                                FontSize="20"
+                                FontWeight="Bold"
+                                Content="{Binding AnswerOption4}"
+                                Command="{Binding SubmitAnswerCommand}"
+                                CommandParameter="{Binding AnswerOption4}"
+                                IsEnabled="{Binding IsRoundActive}"
+                                Style="{StaticResource AnswerButtonStyle}" />
+                    </UniformGrid>
+                </Border>
+            </Grid>
+
+            <Grid IsHitTestVisible="{Binding IsRoundSummaryVisible}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsRoundSummaryVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Border Background="#F8FFFFFF"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="2"
+                        CornerRadius="22"
+                        Padding="24"
+                        MaxWidth="520"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Margin="0,-54,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Kolo dokončeno"
+                                   Style="{StaticResource SectionTitleStyle}"
+                                   TextAlignment="Center"
+                                   Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding RoundSummary}"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,10" />
+                        <TextBlock Text="{Binding RoundSaveStatus}"
+                                   Style="{StaticResource SubtitleStyle}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,16" />
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center">
+                            <Button Content="Nové kolo"
+                                    Command="{Binding StartNewRoundCommand}"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    Width="160"
+                                    Margin="0,0,10,0" />
+                            <Button Content="Zpět"
+                                    Command="{Binding BackCommand}"
+                                    Style="{StaticResource AnswerButtonStyle}"
+                                    Width="130" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

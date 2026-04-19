@@ -1,0 +1,237 @@
+using System.Text;
+using System.Text.Json;
+using SharedCore.Models;
+
+namespace SharedCore.Services;
+
+public sealed class TeacherAccountStore
+{
+    public const string DefaultDataRoot = "/var/lib/schoolmath/data";
+
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
+    private readonly object _sync = new();
+    private readonly TeacherPasswordHasher _passwordHasher;
+
+    public TeacherAccountStore(string dataRoot, TeacherPasswordHasher? passwordHasher = null)
+    {
+        DataRoot = string.IsNullOrWhiteSpace(dataRoot)
+            ? DefaultDataRoot
+            : Path.GetFullPath(Environment.ExpandEnvironmentVariables(dataRoot.Trim().Trim('"')));
+        _passwordHasher = passwordHasher ?? new TeacherPasswordHasher();
+    }
+
+    public string DataRoot { get; }
+    public string SecurityDirectory => Path.Combine(DataRoot, "security");
+    public string TeachersFilePath => Path.Combine(SecurityDirectory, "teachers.json");
+    public string SettingsFilePath => Path.Combine(SecurityDirectory, "teacher-auth-settings.json");
+
+    public IReadOnlyList<TeacherAccount> ListTeachers()
+    {
+        lock (_sync)
+        {
+            return LoadTeachersUnsafe()
+                .OrderBy(account => account.Username, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+    }
+
+    public TeacherAccount? FindTeacher(string username)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+        lock (_sync)
+        {
+            return LoadTeachersUnsafe().FirstOrDefault(account =>
+                string.Equals(account.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    public TeacherAccount CreateTeacher(string username, string displayName, string password)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+        var normalizedDisplayName = NormalizeDisplayName(displayName, normalizedUsername);
+
+        lock (_sync)
+        {
+            var teachers = LoadTeachersUnsafe();
+            if (teachers.Any(account => string.Equals(account.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException("Teacher account already exists.");
+            }
+
+            var hash = _passwordHasher.HashPassword(password);
+            var now = DateTime.UtcNow;
+            var account = new TeacherAccount
+            {
+                Username = normalizedUsername,
+                DisplayName = normalizedDisplayName,
+                PasswordHash = hash.PasswordHash,
+                PasswordSalt = hash.PasswordSalt,
+                IsActive = true,
+                CreatedUtc = now,
+                UpdatedUtc = now
+            };
+
+            teachers.Add(account);
+            SaveTeachersUnsafe(teachers);
+            return account;
+        }
+    }
+
+    public TeacherAccount SetTeacherPassword(string username, string password)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+
+        lock (_sync)
+        {
+            var teachers = LoadTeachersUnsafe();
+            var account = teachers.FirstOrDefault(item =>
+                string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+            if (account is null)
+            {
+                throw new InvalidOperationException("Teacher account was not found.");
+            }
+
+            var hash = _passwordHasher.HashPassword(password);
+            account.PasswordHash = hash.PasswordHash;
+            account.PasswordSalt = hash.PasswordSalt;
+            account.UpdatedUtc = DateTime.UtcNow;
+            SaveTeachersUnsafe(teachers);
+            return account;
+        }
+    }
+
+    public TeacherAccount SetTeacherActive(string username, bool isActive)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+
+        lock (_sync)
+        {
+            var teachers = LoadTeachersUnsafe();
+            var account = teachers.FirstOrDefault(item =>
+                string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+            if (account is null)
+            {
+                throw new InvalidOperationException("Teacher account was not found.");
+            }
+
+            account.IsActive = isActive;
+            account.UpdatedUtc = DateTime.UtcNow;
+            SaveTeachersUnsafe(teachers);
+            return account;
+        }
+    }
+
+    public TeacherAccount? VerifyCredentials(string username, string password)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+        TeacherAccount? account;
+        lock (_sync)
+        {
+            account = LoadTeachersUnsafe().FirstOrDefault(item =>
+                string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (account is null || !account.IsActive || !_passwordHasher.VerifyPassword(password, account))
+        {
+            return null;
+        }
+
+        return account;
+    }
+
+    public TeacherAuthSettings LoadOrCreateSettings()
+    {
+        lock (_sync)
+        {
+            Directory.CreateDirectory(SecurityDirectory);
+            if (File.Exists(SettingsFilePath))
+            {
+                var settings = JsonSerializer.Deserialize<TeacherAuthSettings>(
+                    File.ReadAllText(SettingsFilePath, Encoding.UTF8),
+                    SerializerOptions);
+                if (settings is not null && !string.IsNullOrWhiteSpace(settings.TokenSigningKey))
+                {
+                    return settings;
+                }
+            }
+
+            var now = DateTime.UtcNow;
+            var newSettings = new TeacherAuthSettings
+            {
+                Version = 1,
+                TokenSigningKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(64)),
+                TokenLifetimeMinutes = 480,
+                CreatedUtc = now,
+                UpdatedUtc = now
+            };
+            SaveJsonAtomic(SettingsFilePath, newSettings);
+            return newSettings;
+        }
+    }
+
+    private List<TeacherAccount> LoadTeachersUnsafe()
+    {
+        Directory.CreateDirectory(SecurityDirectory);
+        if (!File.Exists(TeachersFilePath))
+        {
+            return [];
+        }
+
+        var teachers = JsonSerializer.Deserialize<List<TeacherAccount>>(
+            File.ReadAllText(TeachersFilePath, Encoding.UTF8),
+            SerializerOptions);
+        return teachers ?? [];
+    }
+
+    private void SaveTeachersUnsafe(List<TeacherAccount> teachers)
+    {
+        SaveJsonAtomic(
+            TeachersFilePath,
+            teachers.OrderBy(account => account.Username, StringComparer.OrdinalIgnoreCase).ToList());
+    }
+
+    private static void SaveJsonAtomic<T>(string path, T value)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
+        var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(value, SerializerOptions), Encoding.UTF8);
+        if (File.Exists(path))
+        {
+            File.Replace(tempPath, path, null);
+        }
+        else
+        {
+            File.Move(tempPath, path);
+        }
+    }
+
+    private static string NormalizeUsername(string username)
+    {
+        var value = username.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(value) ||
+            value.Length > 64 ||
+            value.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '.' or '_' or '-' or '@')))
+        {
+            throw new ArgumentException("Teacher username is not valid.", nameof(username));
+        }
+
+        return value;
+    }
+
+    private static string NormalizeDisplayName(string displayName, string fallback)
+    {
+        var value = string.IsNullOrWhiteSpace(displayName) ? fallback : displayName.Trim();
+        if (value.Length > 120)
+        {
+            throw new ArgumentException("Teacher display name is too long.", nameof(displayName));
+        }
+
+        return value;
+    }
+}

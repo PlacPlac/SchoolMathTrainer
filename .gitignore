@@ -1,0 +1,41 @@
+﻿# Build outputs
+bin/
+obj/
+publish/
+
+# Logs
+*.log
+logs/
+
+# IDE and local settings
+.vs/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and env
+.env
+.env.*
+*.pfx
+*.snk
+*.key
+*.pem
+
+# Local and deployment-only data
+sample-data/
+artifacts/
+backups/
+exports/
+
+# Runtime / generated app data
+student-accounts.json
+teacher-accounts.json
+shared-data-folder.json
+
+# Private keys
+*schoolmath_key*
+*teacherapp*
+id_ed25519*
