@@ -590,7 +590,9 @@ Chráněné:
 - PIN žáka je PBKDF2 hash se saltem,
 - temporary PIN je chráněný přes `PendingTemporaryPinProtector`.
 
-Nechráněné nebo slabší:\n\n- Bezprostřední doporučený krok po deployi 2026-04-20 je změnit dočasné teacher heslo účtu `ucitel` na finální bezpečné heslo mimo chat.
+Nechráněné nebo slabší:
+
+- Bezprostřední doporučený krok po deployi 2026-04-20 je změnit dočasné teacher heslo účtu ucitel na finální bezpečné heslo mimo chat.
 
 - student endpointy nevyžadují teacher auth,
 - student result upload spoléhá na znalost `classId` a `studentId`,
@@ -662,7 +664,9 @@ Doporučený postup:
 - Některé konzolové výpisy v `SchoolMathTrainer.TeacherAdmin` a část textu v `TeacherTokenService` mohou v PowerShell výpisu působit jako poškozená diakritika; soubory je potřeba držet jako UTF-8 a při dalších zásazích ověřit skutečné kódování.
 - `TeacherApp` ukládá token jen v paměti, takže po restartu aplikace je nutné nové přihlášení.
 - `TeacherLoginRateLimiter` je in-memory; restart API smaže historii pokusů.
-- `TeacherServerSettings.DefaultRemoteDataPath` (`/srv/schoolmath/data`) se liší od API `DataRoot` (`/var/lib/schoolmath/data`).\n- UI TeacherApp aktuálně může v informačním textu zobrazovat server s portem `22`; jde o SSH/SFTP port a UI nepřesnost, ne problém API komunikace.\n- Další možné kroky: oprava UI textu se serverem a portem `22`, jednoduché admin rozhraní pro správu učitelů, případné rate limiting a audit logy později.
+- TeacherServerSettings.DefaultRemoteDataPath (/srv/schoolmath/data) se liší od API DataRoot (/var/lib/schoolmath/data).
+- UI TeacherApp aktuálně může v informačním textu zobrazovat server s portem 22; jde o SSH/SFTP port a UI nepřesnost, ne problém API komunikace.
+- Další možné kroky: oprava UI textu se serverem a portem 22, jednoduché admin rozhraní pro správu učitelů, případné rate limiting a audit logy později.
 
 ## 10. Kontrolní checklist při změnách projektu
 
