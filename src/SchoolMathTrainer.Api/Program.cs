@@ -74,6 +74,17 @@ app.MapPost("/api/teachers/login", (
     }
 });
 
+app.MapPost("/api/teachers/logout", (HttpRequest request, TeacherTokenService teacherTokens) =>
+{
+    if (!TryReadBearerToken(request, out var token))
+    {
+        return Results.Unauthorized();
+    }
+
+    teacherTokens.RevokeToken(token);
+    return Results.Ok(new ApiMessageResponse("Učitel byl odhlášen."));
+});
+
 app.MapGet("/api/classes/{classId}", (string classId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
 {
     if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
@@ -313,9 +324,27 @@ static bool TryAuthorizeTeacher(
     out IResult? unauthorizedResult)
 {
     unauthorizedResult = null;
-    if (!request.Headers.TryGetValue("Authorization", out var authorizationValues))
+    if (!TryReadBearerToken(request, out var token))
     {
         unauthorizedResult = Results.Unauthorized();
+        return false;
+    }
+
+    var validation = teacherTokens.ValidateToken(token);
+    if (!validation.Success)
+    {
+        unauthorizedResult = Results.Unauthorized();
+        return false;
+    }
+
+    return true;
+}
+
+static bool TryReadBearerToken(HttpRequest request, out string token)
+{
+    token = string.Empty;
+    if (!request.Headers.TryGetValue("Authorization", out var authorizationValues))
+    {
         return false;
     }
 
@@ -323,18 +352,11 @@ static bool TryAuthorizeTeacher(
     const string bearerPrefix = "Bearer ";
     if (!authorization.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
     {
-        unauthorizedResult = Results.Unauthorized();
         return false;
     }
 
-    var validation = teacherTokens.ValidateToken(authorization[bearerPrefix.Length..].Trim());
-    if (!validation.Success)
-    {
-        unauthorizedResult = Results.StatusCode(StatusCodes.Status403Forbidden);
-        return false;
-    }
-
-    return true;
+    token = authorization[bearerPrefix.Length..].Trim();
+    return !string.IsNullOrWhiteSpace(token);
 }
 
 static string ResolveDataRoot(string? configuredValue, string contentRootPath)

@@ -155,7 +155,7 @@ public sealed class TeacherAccountStore
                 var settings = JsonSerializer.Deserialize<TeacherAuthSettings>(
                     File.ReadAllText(SettingsFilePath, Encoding.UTF8),
                     SerializerOptions);
-                if (settings is not null && !string.IsNullOrWhiteSpace(settings.TokenSigningKey))
+                if (settings is not null)
                 {
                     return settings;
                 }
@@ -165,7 +165,6 @@ public sealed class TeacherAccountStore
             var newSettings = new TeacherAuthSettings
             {
                 Version = 1,
-                TokenSigningKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(64)),
                 TokenLifetimeMinutes = 480,
                 CreatedUtc = now,
                 UpdatedUtc = now

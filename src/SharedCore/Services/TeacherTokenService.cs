@@ -9,10 +9,12 @@ public sealed class TeacherTokenService
 {
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
+        WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly object _sync = new();
     private readonly TeacherAccountStore _accountStore;
 
     public TeacherTokenService(TeacherAccountStore accountStore)
@@ -25,18 +27,29 @@ public sealed class TeacherTokenService
         var settings = _accountStore.LoadOrCreateSettings();
         var issuedUtc = DateTime.UtcNow;
         var expiresUtc = issuedUtc.AddMinutes(Math.Clamp(settings.TokenLifetimeMinutes, 15, 24 * 60));
-        var payload = new TeacherTokenPayload(
-            account.Username,
-            account.DisplayName,
-            issuedUtc,
-            expiresUtc,
-            Guid.NewGuid().ToString("N"));
-        var payloadSegment = Base64UrlEncode(JsonSerializer.SerializeToUtf8Bytes(payload, SerializerOptions));
-        var signatureSegment = Sign(payloadSegment, settings.TokenSigningKey);
+        var token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+
+        lock (_sync)
+        {
+            var sessions = LoadSessionsUnsafe()
+                .Where(session => session.ExpiresUtc > issuedUtc)
+                .ToList();
+            sessions.Add(new TeacherSessionRecord
+            {
+                TokenHash = HashToken(token),
+                Username = account.Username,
+                DisplayName = account.DisplayName,
+                IssuedUtc = issuedUtc,
+                ExpiresUtc = expiresUtc,
+                LastSeenUtc = issuedUtc
+            });
+            SaveSessionsUnsafe(sessions);
+        }
+
         return new TeacherLoginResponse(
             true,
             "Přihlášení učitele proběhlo úspěšně.",
-            $"{payloadSegment}.{signatureSegment}",
+            token,
             expiresUtc,
             account.Username,
             account.DisplayName);
@@ -49,57 +62,107 @@ public sealed class TeacherTokenService
             return new TeacherTokenValidationResult(false, Message: "Token is missing.");
         }
 
-        var parts = token.Split('.', 2);
-        if (parts.Length != 2)
+        var tokenHash = HashToken(token.Trim());
+        lock (_sync)
         {
-            return new TeacherTokenValidationResult(false, Message: "Token format is not valid.");
-        }
+            var now = DateTime.UtcNow;
+            var sessions = LoadSessionsUnsafe();
+            var activeSessions = sessions
+                .Where(session => session.ExpiresUtc > now)
+                .ToList();
+            var session = activeSessions.FirstOrDefault(item =>
+                FixedTimeEquals(item.TokenHash, tokenHash));
 
-        var settings = _accountStore.LoadOrCreateSettings();
-        var expectedSignature = Sign(parts[0], settings.TokenSigningKey);
-        if (!FixedTimeEquals(parts[1], expectedSignature))
-        {
-            return new TeacherTokenValidationResult(false, Message: "Token signature is not valid.");
-        }
+            if (activeSessions.Count != sessions.Count)
+            {
+                SaveSessionsUnsafe(activeSessions);
+            }
 
-        TeacherTokenPayload? payload;
-        try
-        {
-            payload = JsonSerializer.Deserialize<TeacherTokenPayload>(
-                Base64UrlDecode(parts[0]),
-                SerializerOptions);
-        }
-        catch (Exception ex) when (ex is FormatException or JsonException)
-        {
-            return new TeacherTokenValidationResult(false, Message: "Token payload is not valid.");
-        }
+            if (session is null || string.IsNullOrWhiteSpace(session.Username))
+            {
+                return new TeacherTokenValidationResult(false, Message: "Token expired or was not found.");
+            }
 
-        if (payload is null ||
-            string.IsNullOrWhiteSpace(payload.Username) ||
-            payload.ExpiresUtc <= DateTime.UtcNow)
-        {
-            return new TeacherTokenValidationResult(false, Message: "Token expired or incomplete.");
-        }
+            var account = _accountStore.FindTeacher(session.Username);
+            if (account is null || !account.IsActive)
+            {
+                activeSessions.Remove(session);
+                SaveSessionsUnsafe(activeSessions);
+                return new TeacherTokenValidationResult(false, Message: "Teacher account is not active.");
+            }
 
-        var account = _accountStore.FindTeacher(payload.Username);
-        if (account is null || !account.IsActive)
-        {
-            return new TeacherTokenValidationResult(false, Message: "Teacher account is not active.");
-        }
+            session.DisplayName = account.DisplayName;
+            session.LastSeenUtc = now;
+            SaveSessionsUnsafe(activeSessions);
 
-        return new TeacherTokenValidationResult(
-            true,
-            account.Username,
-            account.DisplayName,
-            payload.ExpiresUtc);
+            return new TeacherTokenValidationResult(
+                true,
+                account.Username,
+                account.DisplayName,
+                session.ExpiresUtc);
+        }
     }
 
-    private static string Sign(string payloadSegment, string signingKey)
+    public bool RevokeToken(string token)
     {
-        var key = Convert.FromBase64String(signingKey);
-        using var hmac = new HMACSHA256(key);
-        return Base64UrlEncode(hmac.ComputeHash(Encoding.UTF8.GetBytes(payloadSegment)));
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        var tokenHash = HashToken(token.Trim());
+        lock (_sync)
+        {
+            var sessions = LoadSessionsUnsafe();
+            var remainingSessions = sessions
+                .Where(session => !FixedTimeEquals(session.TokenHash, tokenHash))
+                .ToList();
+            if (remainingSessions.Count == sessions.Count)
+            {
+                return false;
+            }
+
+            SaveSessionsUnsafe(remainingSessions);
+            return true;
+        }
     }
+
+    private string SessionsFilePath => Path.Combine(_accountStore.SecurityDirectory, "teacher-sessions.json");
+
+    private List<TeacherSessionRecord> LoadSessionsUnsafe()
+    {
+        Directory.CreateDirectory(_accountStore.SecurityDirectory);
+        if (!File.Exists(SessionsFilePath))
+        {
+            return [];
+        }
+
+        var sessions = JsonSerializer.Deserialize<List<TeacherSessionRecord>>(
+            File.ReadAllText(SessionsFilePath, Encoding.UTF8),
+            SerializerOptions);
+        return sessions ?? [];
+    }
+
+    private void SaveSessionsUnsafe(List<TeacherSessionRecord> sessions)
+    {
+        Directory.CreateDirectory(_accountStore.SecurityDirectory);
+        var tempPath = $"{SessionsFilePath}.{Guid.NewGuid():N}.tmp";
+        File.WriteAllText(
+            tempPath,
+            JsonSerializer.Serialize(sessions.OrderBy(session => session.Username).ToList(), SerializerOptions),
+            Encoding.UTF8);
+        if (File.Exists(SessionsFilePath))
+        {
+            File.Replace(tempPath, SessionsFilePath, null);
+        }
+        else
+        {
+            File.Move(tempPath, SessionsFilePath);
+        }
+    }
+
+    private static string HashToken(string token) =>
+        Base64UrlEncode(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     private static bool FixedTimeEquals(string left, string right)
     {
@@ -114,18 +177,4 @@ public sealed class TeacherTokenService
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
-
-    private static byte[] Base64UrlDecode(string text)
-    {
-        var padded = text.Replace('-', '+').Replace('_', '/');
-        padded = padded.PadRight(padded.Length + (4 - padded.Length % 4) % 4, '=');
-        return Convert.FromBase64String(padded);
-    }
-
-    private sealed record TeacherTokenPayload(
-        string Username,
-        string DisplayName,
-        DateTime IssuedUtc,
-        DateTime ExpiresUtc,
-        string Nonce);
 }
