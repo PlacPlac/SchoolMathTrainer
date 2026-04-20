@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using SchoolMathTrainer.Api.Services;
+using System.Threading.RateLimiting;
 using SharedCore.Models;
 using SharedCore.Services;
 
@@ -16,7 +17,37 @@ builder.Services.AddSingleton(serviceProvider =>
     return new TeacherAccountStore(dataRoot, serviceProvider.GetRequiredService<TeacherPasswordHasher>());
 });
 builder.Services.AddSingleton<TeacherTokenService>();
-builder.Services.AddSingleton<TeacherLoginRateLimiter>();
+builder.Services.AddSingleton<TeacherLoginLockoutStore>();
+builder.Services.AddSingleton<TeacherAuthAuditLogger>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("teacher-login", httpContext =>
+    {
+        var remoteAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"teacher-login:{remoteAddress}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        var audit = context.HttpContext.RequestServices.GetService<TeacherAuthAuditLogger>();
+        audit?.Write(
+            "teacher_login_rate_limited",
+            string.Empty,
+            context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            context.HttpContext.Request.Path,
+            StatusCodes.Status429TooManyRequests,
+            "Login request rejected by ASP.NET Core rate limiting middleware.");
+        return new ValueTask();
+    };
+});
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -26,6 +57,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 var app = builder.Build();
 var logger = app.Logger;
 
+app.UseRateLimiter();
+
 app.MapGet("/health", () =>
     Results.Ok(new HealthResponse("ok", "SchoolMathTrainer.Api", DateTime.UtcNow)));
 
@@ -34,36 +67,53 @@ app.MapPost("/api/teachers/login", (
     HttpContext httpContext,
     TeacherAccountStore teacherStore,
     TeacherTokenService tokenService,
-    TeacherLoginRateLimiter rateLimiter) =>
+    TeacherLoginLockoutStore lockoutStore,
+    TeacherAuthAuditLogger audit) =>
 {
     var username = request?.Username ?? string.Empty;
-    var remoteAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    if (rateLimiter.IsBlocked(username, remoteAddress, out var retryAfter))
+    var password = request?.Password ?? string.Empty;
+    var remoteAddress = GetRemoteAddress(httpContext);
+    if (lockoutStore.IsLocked(username, remoteAddress, out var retryAfter))
     {
-        logger.LogWarning("Teacher login rate limit blocked username {Username} from {RemoteAddress}.", username, remoteAddress);
+        audit.Write("teacher_login_lockout_blocked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Login blocked by persisted lockout.");
+        logger.LogWarning("Teacher login lockout blocked username {Username} from {RemoteAddress}.", username, remoteAddress);
         httpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
         return Results.Json(
             new ApiMessageResponse("Příliš mnoho pokusů o přihlášení. Zkuste to později."),
-            statusCode: StatusCodes.Status429TooManyRequests);
+            statusCode: StatusCodes.Status423Locked);
     }
 
     try
     {
-        var account = teacherStore.VerifyCredentials(username, request?.Password ?? string.Empty);
+        var account = teacherStore.VerifyCredentials(username, password);
         if (account is null)
         {
-            rateLimiter.RegisterFailure(username, remoteAddress);
+            var failure = lockoutStore.RegisterFailure(username, remoteAddress);
+            audit.Write("teacher_login_failed", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Invalid teacher credentials.");
+            if (failure.LockoutStarted)
+            {
+                audit.Write("teacher_login_lockout_started", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Failure threshold reached.");
+                logger.LogWarning("Teacher login lockout started for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            }
+
             logger.LogWarning("Teacher login failed for username {Username} from {RemoteAddress}.", username, remoteAddress);
             return Results.Unauthorized();
         }
 
-        rateLimiter.RegisterSuccess(username, remoteAddress);
+        lockoutStore.RegisterSuccess(username, remoteAddress);
+        audit.Write("teacher_login_succeeded", account.Username, remoteAddress, httpContext.Request.Path, StatusCodes.Status200OK, "Teacher credentials accepted.");
         logger.LogInformation("Teacher login succeeded for username {Username}.", account.Username);
         return Results.Ok(tokenService.IssueToken(account));
     }
     catch (ArgumentException ex)
     {
-        rateLimiter.RegisterFailure(username, remoteAddress);
+        var failure = lockoutStore.RegisterFailure(username, remoteAddress);
+        audit.Write("teacher_login_failed", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Invalid teacher login request.");
+        if (failure.LockoutStarted)
+        {
+            audit.Write("teacher_login_lockout_started", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Invalid request failure threshold reached.");
+        }
+
         logger.LogWarning(ex, "Teacher login rejected because request was invalid.");
         return Results.Unauthorized();
     }
@@ -72,22 +122,32 @@ app.MapPost("/api/teachers/login", (
         logger.LogError(ex, "Teacher login could not be completed.");
         return Results.Problem("Teacher login could not be completed.");
     }
-});
+}).RequireRateLimiting("teacher-login");
 
-app.MapPost("/api/teachers/logout", (HttpRequest request, TeacherTokenService teacherTokens) =>
+app.MapPost("/api/teachers/logout", (HttpContext httpContext, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryReadBearerToken(request, out var token))
+    var remoteAddress = GetRemoteAddress(httpContext);
+    if (!TryReadBearerToken(httpContext.Request, out var token))
     {
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Logout request did not include a bearer token.");
+        return Results.Unauthorized();
+    }
+
+    var validation = teacherTokens.ValidateToken(token);
+    if (!validation.Success)
+    {
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, validation.Message);
         return Results.Unauthorized();
     }
 
     teacherTokens.RevokeToken(token);
+    audit.Write("teacher_logout", validation.Username, remoteAddress, httpContext.Request.Path, StatusCodes.Status200OK, "Teacher session revoked.");
     return Results.Ok(new ApiMessageResponse("Učitel byl odhlášen."));
 });
 
-app.MapGet("/api/classes/{classId}", (string classId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapGet("/api/classes/{classId}", (string classId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -107,9 +167,9 @@ app.MapGet("/api/classes/{classId}", (string classId, HttpRequest request, IClas
     }
 });
 
-app.MapGet("/api/classes/{classId}/overview", (string classId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapGet("/api/classes/{classId}/overview", (string classId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -130,9 +190,9 @@ app.MapGet("/api/classes/{classId}/overview", (string classId, HttpRequest reque
     }
 });
 
-app.MapGet("/api/classes/{classId}/activities", (string classId, int? limit, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapGet("/api/classes/{classId}/activities", (string classId, int? limit, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -154,9 +214,9 @@ app.MapGet("/api/classes/{classId}/activities", (string classId, int? limit, Htt
     }
 });
 
-app.MapGet("/api/students/{classId}/{studentId}", (string classId, string studentId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapGet("/api/students/{classId}/{studentId}", (string classId, string studentId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -175,9 +235,9 @@ app.MapGet("/api/students/{classId}/{studentId}", (string classId, string studen
     }
 });
 
-app.MapGet("/api/students/{classId}/{studentId}/results", (string classId, string studentId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapGet("/api/students/{classId}/{studentId}/results", (string classId, string studentId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -201,9 +261,9 @@ app.MapGet("/api/students/{classId}/{studentId}/results", (string classId, strin
     }
 });
 
-app.MapPost("/api/classes/{classId}/students", (string classId, CreateStudentRequest requestBody, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapPost("/api/classes/{classId}/students", (string classId, CreateStudentRequest requestBody, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -227,9 +287,9 @@ app.MapPost("/api/classes/{classId}/students", (string classId, CreateStudentReq
     }
 });
 
-app.MapPost("/api/students/{classId}/{studentId}/reset-pin", (string classId, string studentId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapPost("/api/students/{classId}/{studentId}/reset-pin", (string classId, string studentId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -253,9 +313,9 @@ app.MapPost("/api/students/{classId}/{studentId}/reset-pin", (string classId, st
     }
 });
 
-app.MapDelete("/api/students/{classId}/{studentId}", (string classId, string studentId, HttpRequest request, IClassDataRepository repository, TeacherTokenService teacherTokens) =>
+app.MapDelete("/api/students/{classId}/{studentId}", (string classId, string studentId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
-    if (!TryAuthorizeTeacher(request, teacherTokens, out var unauthorizedResult))
+    if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
     {
         return unauthorizedResult;
     }
@@ -319,13 +379,17 @@ app.MapPost("/api/students/{classId}/{studentId}/results", (string classId, stri
 app.Run();
 
 static bool TryAuthorizeTeacher(
-    HttpRequest request,
+    HttpContext httpContext,
     TeacherTokenService teacherTokens,
+    TeacherAuthAuditLogger audit,
     out IResult? unauthorizedResult)
 {
     unauthorizedResult = null;
+    var request = httpContext.Request;
+    var remoteAddress = GetRemoteAddress(httpContext);
     if (!TryReadBearerToken(request, out var token))
     {
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, "Bearer token is missing.");
         unauthorizedResult = Results.Unauthorized();
         return false;
     }
@@ -333,12 +397,16 @@ static bool TryAuthorizeTeacher(
     var validation = teacherTokens.ValidateToken(token);
     if (!validation.Success)
     {
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, validation.Message);
         unauthorizedResult = Results.Unauthorized();
         return false;
     }
 
     return true;
 }
+
+static string GetRemoteAddress(HttpContext httpContext) =>
+    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
 static bool TryReadBearerToken(HttpRequest request, out string token)
 {

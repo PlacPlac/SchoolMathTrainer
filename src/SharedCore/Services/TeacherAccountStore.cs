@@ -137,9 +137,34 @@ public sealed class TeacherAccountStore
                 string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (account is null || !account.IsActive || !_passwordHasher.VerifyPassword(password, account))
+        if (account is null || !account.IsActive)
         {
             return null;
+        }
+
+        var passwordResult = _passwordHasher.VerifyPassword(password, account);
+        if (passwordResult is TeacherPasswordVerificationResult.Failed)
+        {
+            return null;
+        }
+
+        if (passwordResult is TeacherPasswordVerificationResult.SuccessRehashNeeded)
+        {
+            lock (_sync)
+            {
+                var teachers = LoadTeachersUnsafe();
+                var storedAccount = teachers.FirstOrDefault(item =>
+                    string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+                if (storedAccount is not null)
+                {
+                    var upgradedHash = _passwordHasher.HashPassword(password);
+                    storedAccount.PasswordHash = upgradedHash.PasswordHash;
+                    storedAccount.PasswordSalt = upgradedHash.PasswordSalt;
+                    storedAccount.UpdatedUtc = DateTime.UtcNow;
+                    SaveTeachersUnsafe(teachers);
+                    account = storedAccount;
+                }
+            }
         }
 
         return account;

@@ -1,13 +1,14 @@
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Identity;
 using SharedCore.Models;
 
 namespace SharedCore.Services;
 
 public sealed class TeacherPasswordHasher
 {
-    public const int Iterations = 210_000;
-    private const int SaltBytes = 32;
-    private const int HashBytes = 32;
+    private readonly PasswordHasher<TeacherAccount> _passwordHasher = new();
+
+    private const int LegacyIterations = 210_000;
 
     public (string PasswordHash, string PasswordSalt) HashPassword(string password)
     {
@@ -16,24 +17,32 @@ public sealed class TeacherPasswordHasher
             throw new ArgumentException("Password must not be empty.", nameof(password));
         }
 
-        var salt = RandomNumberGenerator.GetBytes(SaltBytes);
-        var hash = Rfc2898DeriveBytes.Pbkdf2(
-            password,
-            salt,
-            Iterations,
-            HashAlgorithmName.SHA256,
-            HashBytes);
-
-        return (Convert.ToBase64String(hash), Convert.ToBase64String(salt));
+        var account = new TeacherAccount();
+        return (_passwordHasher.HashPassword(account, password), string.Empty);
     }
 
-    public bool VerifyPassword(string password, TeacherAccount account)
+    public TeacherPasswordVerificationResult VerifyPassword(string password, TeacherAccount account)
     {
         if (string.IsNullOrEmpty(password) ||
-            string.IsNullOrWhiteSpace(account.PasswordHash) ||
-            string.IsNullOrWhiteSpace(account.PasswordSalt))
+            string.IsNullOrWhiteSpace(account.PasswordHash))
         {
-            return false;
+            return TeacherPasswordVerificationResult.Failed;
+        }
+
+        var identityResult = _passwordHasher.VerifyHashedPassword(account, account.PasswordHash, password);
+        if (identityResult is PasswordVerificationResult.Success)
+        {
+            return TeacherPasswordVerificationResult.Success;
+        }
+
+        if (identityResult is PasswordVerificationResult.SuccessRehashNeeded)
+        {
+            return TeacherPasswordVerificationResult.SuccessRehashNeeded;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.PasswordSalt))
+        {
+            return TeacherPasswordVerificationResult.Failed;
         }
 
         try
@@ -43,15 +52,24 @@ public sealed class TeacherPasswordHasher
             var actualHash = Rfc2898DeriveBytes.Pbkdf2(
                 password,
                 salt,
-                Iterations,
+                LegacyIterations,
                 HashAlgorithmName.SHA256,
                 expectedHash.Length);
 
-            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash);
+            return CryptographicOperations.FixedTimeEquals(actualHash, expectedHash)
+                ? TeacherPasswordVerificationResult.SuccessRehashNeeded
+                : TeacherPasswordVerificationResult.Failed;
         }
         catch (FormatException)
         {
-            return false;
+            return TeacherPasswordVerificationResult.Failed;
         }
     }
+}
+
+public enum TeacherPasswordVerificationResult
+{
+    Failed,
+    Success,
+    SuccessRehashNeeded
 }
