@@ -1,0 +1,87 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TeacherApp.ServerSettingsWindow"
+        Title="Nastavení serveru"
+        Width="520"
+        Height="430"
+        MinWidth="460"
+        MinHeight="390"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,Auto,Auto"
+        Margin="24"
+        RowSpacing="18">
+    <StackPanel Grid.Row="0"
+                Spacing="6">
+      <TextBlock Text="Nastavení serveru"
+                 FontSize="22" />
+      <TextBlock Text="Tyto údaje připravují budoucí SSH/SFTP napojení. Nejde o lokální cestu na tomto počítači."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Grid Grid.Row="1"
+          RowDefinitions="Auto,Auto,Auto,Auto"
+          ColumnDefinitions="150,*"
+          RowSpacing="12"
+          ColumnSpacing="12">
+      <TextBlock Grid.Row="0"
+                 Grid.Column="0"
+                 Text="Host"
+                 VerticalAlignment="Center" />
+      <TextBox x:Name="HostTextBox"
+               Grid.Row="0"
+               Grid.Column="1"
+                 Watermark="89.221.212.49" />
+
+      <TextBlock Grid.Row="1"
+                 Grid.Column="0"
+                 Text="Port"
+                 VerticalAlignment="Center" />
+      <TextBox x:Name="PortTextBox"
+               Grid.Row="1"
+               Grid.Column="1"
+               Watermark="22" />
+
+      <TextBlock Grid.Row="2"
+                 Grid.Column="0"
+                 Text="Uživatel"
+                 VerticalAlignment="Center" />
+      <TextBox x:Name="UsernameTextBox"
+               Grid.Row="2"
+               Grid.Column="1"
+               Watermark="schoolmath" />
+
+      <TextBlock Grid.Row="3"
+                 Grid.Column="0"
+                 Text="Vzdálená data"
+                 VerticalAlignment="Center" />
+      <TextBox x:Name="RemoteDataPathTextBox"
+               Grid.Row="3"
+               Grid.Column="1"
+               Watermark="/srv/schoolmath/data" />
+    </Grid>
+
+    <Grid Grid.Row="2"
+          RowDefinitions="Auto,Auto"
+          ColumnDefinitions="*,Auto,Auto,Auto"
+          RowSpacing="12"
+          ColumnSpacing="10">
+      <TextBlock x:Name="StatusTextBlock"
+                 Grid.Row="0"
+                 Grid.ColumnSpan="4"
+                 Text=""
+                 TextWrapping="Wrap" />
+      <Button Grid.Row="1"
+              Grid.Column="1"
+              Content="Otestovat připojení"
+              Click="OnTestConnectionClick" />
+      <Button Grid.Row="1"
+              Grid.Column="2"
+              Content="Zrušit"
+              Click="OnCancelClick" />
+      <Button Grid.Row="1"
+              Grid.Column="3"
+              Content="Uložit"
+              Click="OnSaveClick" />
+    </Grid>
+  </Grid>
+</Window>

@@ -5,17 +5,19 @@ public sealed record TeacherLoginRequest(
     string Password);
 
 public sealed record TeacherLoginResponse(
+    string Token,
+    DateTime ExpiresUtc);
+
+public sealed record TeacherLoginClientResult(
     bool Success,
     string Message,
     string Token = "",
     DateTime? ExpiresUtc = null,
-    string Username = "",
-    string DisplayName = "");
+    string Username = "");
 
 public sealed record TeacherTokenValidationResult(
     bool Success,
     string Username = "",
-    string DisplayName = "",
     DateTime? ExpiresUtc = null,
     string Message = "");
 

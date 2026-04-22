@@ -25,34 +25,26 @@ public sealed class TeacherTokenService
     public TeacherLoginResponse IssueToken(TeacherAccount account)
     {
         var settings = _accountStore.LoadOrCreateSettings();
-        var issuedUtc = DateTime.UtcNow;
-        var expiresUtc = issuedUtc.AddMinutes(Math.Clamp(settings.TokenLifetimeMinutes, 15, 24 * 60));
+        var createdUtc = DateTime.UtcNow;
+        var expiresUtc = createdUtc.AddMinutes(Math.Clamp(settings.TokenLifetimeMinutes, 15, 24 * 60));
         var token = Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
 
         lock (_sync)
         {
             var sessions = LoadSessionsUnsafe()
-                .Where(session => session.ExpiresUtc > issuedUtc)
+                .Where(session => session.ExpiresUtc > createdUtc)
                 .ToList();
             sessions.Add(new TeacherSessionRecord
             {
                 TokenHash = HashToken(token),
                 Username = account.Username,
-                DisplayName = account.DisplayName,
-                IssuedUtc = issuedUtc,
-                ExpiresUtc = expiresUtc,
-                LastSeenUtc = issuedUtc
+                CreatedUtc = createdUtc,
+                ExpiresUtc = expiresUtc
             });
             SaveSessionsUnsafe(sessions);
         }
 
-        return new TeacherLoginResponse(
-            true,
-            "Přihlášení učitele proběhlo úspěšně.",
-            token,
-            expiresUtc,
-            account.Username,
-            account.DisplayName);
+        return new TeacherLoginResponse(token, expiresUtc);
     }
 
     public TeacherTokenValidationResult ValidateToken(string token)
@@ -91,14 +83,9 @@ public sealed class TeacherTokenService
                 return new TeacherTokenValidationResult(false, Message: "Teacher account is not active.");
             }
 
-            session.DisplayName = account.DisplayName;
-            session.LastSeenUtc = now;
-            SaveSessionsUnsafe(activeSessions);
-
             return new TeacherTokenValidationResult(
                 true,
                 account.Username,
-                account.DisplayName,
                 session.ExpiresUtc);
         }
     }
@@ -127,11 +114,11 @@ public sealed class TeacherTokenService
         }
     }
 
-    private string SessionsFilePath => Path.Combine(_accountStore.SecurityDirectory, "teacher-sessions.json");
+    private string SessionsFilePath => Path.Combine(_accountStore.DataRoot, "teacher-sessions.json");
 
     private List<TeacherSessionRecord> LoadSessionsUnsafe()
     {
-        Directory.CreateDirectory(_accountStore.SecurityDirectory);
+        Directory.CreateDirectory(_accountStore.DataRoot);
         if (!File.Exists(SessionsFilePath))
         {
             return [];
@@ -145,7 +132,7 @@ public sealed class TeacherTokenService
 
     private void SaveSessionsUnsafe(List<TeacherSessionRecord> sessions)
     {
-        Directory.CreateDirectory(_accountStore.SecurityDirectory);
+        Directory.CreateDirectory(_accountStore.DataRoot);
         var tempPath = $"{SessionsFilePath}.{Guid.NewGuid():N}.tmp";
         File.WriteAllText(
             tempPath,

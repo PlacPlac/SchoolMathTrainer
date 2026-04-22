@@ -1,0 +1,635 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TeacherApp.MainWindow"
+        Title="Teacher App"
+        Width="1400"
+        Height="840"
+        MinWidth="1180"
+        MinHeight="720"
+        Background="#080D18">
+  <Window.Styles>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="#E8EEF8" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.appTitle">
+      <Setter Property="FontSize" Value="24" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.sectionTitle">
+      <Setter Property="FontSize" Value="18" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.cardTitle">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Foreground" Value="#F8FAFC" />
+    </Style>
+    <Style Selector="TextBlock.subtle">
+      <Setter Property="Foreground" Value="#C9D5E8" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="#A7B4C8" />
+    </Style>
+    <Style Selector="TextBlock.badge">
+      <Setter Property="Foreground" Value="#BFDBFE" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Border.sidebar">
+      <Setter Property="Background" Value="#0D1526" />
+      <Setter Property="BorderBrush" Value="#2B3B58" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="#111B30" />
+      <Setter Property="BorderBrush" Value="#2B3B58" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Border.cardTight">
+      <Setter Property="Padding" Value="14" />
+    </Style>
+    <Style Selector="Border.statusCard">
+      <Setter Property="Background" Value="#0B1220" />
+      <Setter Property="BorderBrush" Value="#314565" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="12" />
+    </Style>
+    <Style Selector="Border.metricCard">
+      <Setter Property="Background" Value="#0B1220" />
+      <Setter Property="BorderBrush" Value="#263852" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="Padding" Value="10" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="MinWidth" Value="132" />
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="Background" Value="#263852" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#425A7D" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2563EB" />
+      <Setter Property="BorderBrush" Value="#60A5FA" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Background" Value="#18263D" />
+      <Setter Property="BorderBrush" Value="#425A7D" />
+      <Setter Property="Foreground" Value="#EFF6FF" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="#8B1E1E" />
+      <Setter Property="BorderBrush" Value="#EF4444" />
+      <Setter Property="Foreground" Value="#FFF7F7" />
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.62" />
+      <Setter Property="Background" Value="#172235" />
+      <Setter Property="Foreground" Value="#98A7BC" />
+      <Setter Property="BorderBrush" Value="#2A3B55" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Background" Value="#0A1220" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#425A7D" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBox:disabled">
+      <Setter Property="Opacity" Value="0.72" />
+      <Setter Property="Foreground" Value="#C9D5E8" />
+      <Setter Property="Background" Value="#101A2D" />
+      <Setter Property="BorderBrush" Value="#2B3B58" />
+    </Style>
+    <Style Selector="ListBox">
+      <Setter Property="Background" Value="#0A1220" />
+      <Setter Property="Foreground" Value="#E8EEF8" />
+      <Setter Property="BorderBrush" Value="#2B3B58" />
+      <Setter Property="Padding" Value="2" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Margin" Value="2,2" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="Background" Value="#121E33" />
+      <Setter Property="Foreground" Value="#E8EEF8" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover">
+      <Setter Property="Background" Value="#18263D" />
+    </Style>
+    <Style Selector="ListBoxItem:selected">
+      <Setter Property="Background" Value="#1D4ED8" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="20"
+        ColumnDefinitions="320,*,440"
+        ColumnSpacing="18">
+    <Border Grid.Column="0"
+            Classes="sidebar">
+      <Grid RowDefinitions="Auto,Auto,Auto,*"
+            RowSpacing="18">
+        <StackPanel Grid.Row="0"
+                    Spacing="6">
+          <TextBlock Text="Teacher App"
+                     Classes="appTitle"
+                     MinHeight="34"
+                     TextWrapping="NoWrap" />
+          <TextBlock Text="Správa žáků a výsledků třídy"
+                     Classes="subtle"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border Grid.Row="1"
+                Classes="card cardTight">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Učitelský účet"
+                       Classes="cardTitle" />
+            <Grid x:Name="TeacherLoginPanel"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
+                  RowSpacing="10"
+                  IsVisible="False">
+              <TextBox x:Name="TeacherUsernameTextBox"
+                       Grid.Row="0"
+                       Watermark="Uživatelské jméno" />
+              <TextBox x:Name="TeacherPasswordTextBox"
+                       Grid.Row="1"
+                       PasswordChar="*"
+                       Watermark="Heslo" />
+              <Button x:Name="TeacherLoginButton"
+                      Grid.Row="2"
+                      Classes="primary"
+                      HorizontalAlignment="Stretch"
+                      Content="Přihlásit"
+                      Click="OnTeacherLoginClick" />
+              <Button x:Name="TeacherLogoutButton"
+                      Grid.Row="2"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Odhlásit"
+                      Click="OnTeacherLogoutClick"
+                      IsVisible="False" />
+              <Border x:Name="TeacherLoginStatusBorder"
+                      Grid.Row="3"
+                      Classes="statusCard">
+                <TextBlock x:Name="TeacherLoginStatusTextBlock"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Classes="subtle"
+                           IsVisible="False" />
+              </Border>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2"
+                Classes="card cardTight">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Hlavní akce"
+                       Classes="cardTitle" />
+            <Button x:Name="LoadFromServerButton"
+                    Classes="primary"
+                    HorizontalAlignment="Stretch"
+                    Content="Načíst ze serveru"
+                    Click="OnLoadFromServerClick" />
+            <Button x:Name="RefreshDataButton"
+                    Classes="secondary"
+                    HorizontalAlignment="Stretch"
+                    Content="Obnovit data"
+                    Click="OnRefreshDataClick" />
+            <Button x:Name="ServerSettingsButton"
+                    Classes="secondary"
+                    HorizontalAlignment="Stretch"
+                    Content="Nastavení serveru"
+                    Click="OnServerSettingsClick" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3"
+                Classes="statusCard">
+          <StackPanel Spacing="7">
+            <TextBlock Text="Stav aplikace"
+                       Classes="cardTitle" />
+            <TextBlock x:Name="ValidationStatusTextBlock"
+                       Text="Data třídy se načtou automaticky."
+                       TextWrapping="Wrap"
+                       Classes="subtle" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1"
+          RowDefinitions="Auto,*,Auto"
+          RowSpacing="14">
+      <Border Grid.Row="0"
+              Classes="card cardTight">
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="18">
+          <StackPanel Grid.Column="0"
+                      Spacing="5">
+            <TextBlock Text="Žáci"
+                       Classes="sectionTitle" />
+            <TextBlock Text="Vyberte žáka pro zobrazení detailu, výsledků a akcí."
+                       Classes="subtle"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Grid.Column="1"
+                  Classes="metricCard"
+                  VerticalAlignment="Center">
+            <TextBlock Text="Třídní přehled níže"
+                       Classes="badge"
+                       TextWrapping="NoWrap" />
+          </Border>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1"
+            RowDefinitions="*,Auto"
+            RowSpacing="12">
+        <Border Grid.Row="0"
+                Classes="card cardTight"
+                ClipToBounds="True">
+          <Grid RowDefinitions="Auto,*"
+                RowSpacing="8"
+                ClipToBounds="True">
+            <Grid Grid.Row="0"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+              <TextBlock Grid.Column="0"
+                         Text="Seznam žáků"
+                         Classes="cardTitle" />
+              <TextBlock Grid.Column="1"
+                         Text="výběr otevře detail"
+                         Classes="muted"
+                         VerticalAlignment="Center" />
+            </Grid>
+            <ListBox x:Name="StudentListBox"
+                     Grid.Row="1"
+                     MinHeight="0"
+                     VerticalAlignment="Stretch"
+                     ClipToBounds="True"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     SelectionChanged="OnStudentSelectionChanged">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="*,Auto"
+                        RowDefinitions="Auto,Auto"
+                        ColumnSpacing="12"
+                        RowSpacing="1"
+                        MinHeight="30">
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="0"
+                               Text="{Binding DisplayName}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#FFFFFF"
+                               TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="1"
+                               Text="{Binding AccountStatus}"
+                               FontSize="12"
+                               Foreground="#DBEAFE"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Right" />
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="0"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding LoginCode}"
+                               FontSize="12"
+                               Foreground="#B8C7DD"
+                               TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <Border x:Name="StudentListPlaceholderBorder"
+                    Grid.Row="1"
+                    Classes="statusCard"
+                    MinHeight="0"
+                    VerticalAlignment="Stretch"
+                    ClipToBounds="True"
+                    IsVisible="False">
+              <TextBlock Text="Žáci zatím nejsou načteni. Přihlaste se a použijte akci Načíst ze serveru."
+                         TextWrapping="Wrap"
+                         Classes="subtle"
+                         VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+        </Border>
+
+        <Border Grid.Row="1"
+                Classes="card cardTight">
+          <Grid RowDefinitions="Auto,Auto,Auto"
+                RowSpacing="10">
+            <TextBlock Grid.Row="0"
+                       Text="Nový žák"
+                       Classes="cardTitle" />
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,150"
+                  ColumnSpacing="10">
+              <TextBox x:Name="NewStudentNameTextBox"
+                       Grid.Column="0"
+                       Watermark="Jméno žáka" />
+              <Button x:Name="CreateStudentButton"
+                      Grid.Column="1"
+                      Classes="primary"
+                      HorizontalAlignment="Stretch"
+                      Content="Vytvořit účet"
+                      Click="OnCreateStudentClick" />
+            </Grid>
+            <Border x:Name="CreateStudentStatusBorder"
+                    Grid.Row="2"
+                    Classes="statusCard">
+              <TextBlock x:Name="CreateStudentStatusTextBlock"
+                         Text=""
+                         TextWrapping="Wrap"
+                         Classes="subtle" />
+            </Border>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Border Grid.Row="2"
+              Classes="card"
+              MinHeight="260"
+              MaxHeight="330"
+              ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*"
+              RowSpacing="12">
+          <TextBlock Grid.Row="0"
+                     Text="Třídní přehled"
+                     Classes="cardTitle" />
+          <ScrollViewer Grid.Row="1"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="10">
+              <Border Classes="statusCard">
+                <TextBlock x:Name="ClassOverviewStatusTextBlock"
+                           Text="Třídní přehled není načten."
+                           TextWrapping="Wrap"
+                           Classes="subtle" />
+              </Border>
+              <Grid x:Name="ClassOverviewMetricsGrid"
+                    ColumnDefinitions="*,*"
+                    RowDefinitions="Auto,Auto,Auto,Auto"
+                    ColumnSpacing="8"
+                    RowSpacing="8">
+                <Border Grid.Row="0" Grid.Column="0" Classes="metricCard">
+                  <TextBlock x:Name="ClassLoadedStudentsTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="0" Grid.Column="1" Classes="metricCard">
+                  <TextBlock x:Name="ClassStudentsWithResultsTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="1" Grid.Column="0" Classes="metricCard">
+                  <TextBlock x:Name="ClassStudentsWithoutResultsTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="1" Grid.Column="1" Classes="metricCard">
+                  <TextBlock x:Name="ClassSessionCountTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="2" Grid.Column="0" Classes="metricCard">
+                  <TextBlock x:Name="ClassAttemptCountTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="2" Grid.Column="1" Classes="metricCard">
+                  <TextBlock x:Name="ClassAccuracyTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="3" Grid.Column="0" Classes="metricCard">
+                  <TextBlock x:Name="ClassCorrectAnswersTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+                <Border Grid.Row="3" Grid.Column="1" Classes="metricCard">
+                  <TextBlock x:Name="ClassIncorrectAnswersTextBlock" Text="" TextWrapping="Wrap" />
+                </Border>
+              </Grid>
+              <StackPanel x:Name="ClassOverviewDetailsPanel"
+                          Spacing="8">
+                <TextBlock x:Name="ClassLastActivityTextBlock"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Classes="subtle" />
+                <TextBlock x:Name="ClassModeOverviewTextBlock"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Classes="subtle" />
+                <ListBox x:Name="ClassOverviewStudentsListBox"
+                         MaxHeight="80"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="*,Auto,Auto"
+                            ColumnSpacing="12"
+                            MinHeight="28">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding DisplayName}"
+                                   Foreground="#FFFFFF"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding ResultsStatus}"
+                                   Foreground="#DBEAFE"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Grid.Column="2"
+                                   Text="{Binding AccuracyText}"
+                                   Foreground="#C9D5E8"
+                                   TextWrapping="Wrap" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <TextBlock x:Name="ClassOverviewStudentsEmptyTextBlock"
+                           Text="Žádní žáci nejsou v přehledu k dispozici."
+                           TextWrapping="Wrap"
+                           Classes="subtle"
+                           IsVisible="False" />
+              </StackPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <ScrollViewer Grid.Column="2"
+                  VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="16">
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Detail žáka"
+                       Classes="sectionTitle" />
+            <Border Classes="statusCard">
+              <StackPanel Spacing="8">
+                <TextBlock x:Name="DetailNameTextBlock"
+                           Text="Není vybraný žádný žák."
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#FFFFFF"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="DetailLoginCodeTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+                <TextBlock x:Name="DetailAccountStatusTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+                <TextBlock x:Name="DetailMustChangePinTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+                <TextBlock x:Name="DetailTemporaryPinPendingTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+                <TextBlock x:Name="DetailCreatedAtTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+                <TextBlock x:Name="DetailPinResetAtTextBlock" Text="" TextWrapping="Wrap" Classes="subtle" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Akce se žákem"
+                       Classes="cardTitle" />
+            <Grid ColumnDefinitions="*,*"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="10"
+                  RowSpacing="10">
+              <Button x:Name="ResetPinButton"
+                      Grid.Row="0"
+                      Grid.Column="0"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Resetovat PIN"
+                      Click="OnResetPinClick" />
+              <Button x:Name="DeleteStudentButton"
+                      Grid.Row="0"
+                      Grid.Column="1"
+                      Classes="danger"
+                      HorizontalAlignment="Stretch"
+                      Content="Smazat žáka"
+                      Click="OnDeleteStudentClick" />
+              <Button x:Name="GenerateStudentConfigButton"
+                      Grid.Row="1"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="2"
+                      Classes="primary"
+                      HorizontalAlignment="Stretch"
+                      Content="Vygenerovat soubor pro žáka"
+                      Click="OnGenerateStudentConfigClick" />
+            </Grid>
+            <Border x:Name="StudentActionStatusBorder"
+                    Classes="statusCard">
+              <StackPanel Spacing="6">
+                <TextBlock x:Name="ResetPinStatusTextBlock"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Classes="subtle" />
+                <TextBlock x:Name="StudentConfigStatusTextBlock"
+                           Text=""
+                           TextWrapping="Wrap"
+                           Classes="subtle" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Výsledky žáka"
+                       Classes="sectionTitle" />
+            <Border Classes="statusCard">
+              <TextBlock x:Name="ResultsStatusTextBlock"
+                         Text="Vyberte žáka ze seznamu."
+                         TextWrapping="Wrap"
+                         Classes="subtle" />
+            </Border>
+            <Grid x:Name="ResultsMetricsGrid"
+                  ColumnDefinitions="*,*"
+                  RowDefinitions="Auto,Auto,Auto"
+                  ColumnSpacing="10"
+                  RowSpacing="8">
+              <Border Grid.Row="0" Grid.Column="0" Classes="metricCard">
+                <TextBlock x:Name="ResultsSessionCountTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+              <Border Grid.Row="0" Grid.Column="1" Classes="metricCard">
+                <TextBlock x:Name="ResultsAttemptCountTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+              <Border Grid.Row="1" Grid.Column="0" Classes="metricCard">
+                <TextBlock x:Name="ResultsCorrectAnswersTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+              <Border Grid.Row="1" Grid.Column="1" Classes="metricCard">
+                <TextBlock x:Name="ResultsIncorrectAnswersTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="0" Classes="metricCard">
+                <TextBlock x:Name="ResultsAccuracyTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+              <Border Grid.Row="2" Grid.Column="1" Classes="metricCard">
+                <TextBlock x:Name="ResultsLastActivityTextBlock" Text="" TextWrapping="Wrap" />
+              </Border>
+            </Grid>
+            <TextBlock x:Name="ResultsModeOverviewTextBlock"
+                       Text=""
+                       TextWrapping="Wrap"
+                       Classes="subtle" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Poslední hry žáka"
+                       Classes="cardTitle" />
+            <ListBox x:Name="StudentRecentActivitiesListBox"
+                     MinHeight="120"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="Auto,1.1*,2*"
+                        ColumnSpacing="12"
+                        MinHeight="30">
+                    <TextBlock Grid.Column="0" Text="{Binding CompletedAtText}" TextWrapping="NoWrap" Foreground="#FFFFFF" />
+                    <TextBlock Grid.Column="1" Text="{Binding ModeText}" TextWrapping="Wrap" Foreground="#DBEAFE" />
+                    <TextBlock Grid.Column="2" Text="{Binding ResultText}" TextWrapping="Wrap" Foreground="#C9D5E8" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="StudentRecentActivitiesEmptyTextBlock"
+                       Text="Není k dispozici"
+                       TextWrapping="Wrap"
+                       Classes="subtle"
+                       IsVisible="False" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="Poslední aktivity třídy"
+                       Classes="cardTitle" />
+            <ListBox x:Name="RecentActivitiesListBox"
+                     MinHeight="130"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <Grid ColumnDefinitions="Auto,1.15*,1.05*,2*"
+                        ColumnSpacing="12"
+                        MinHeight="30">
+                    <TextBlock Grid.Column="0" Text="{Binding CompletedAtText}" TextWrapping="NoWrap" Foreground="#FFFFFF" />
+                    <TextBlock Grid.Column="1" Text="{Binding StudentNameText}" TextWrapping="Wrap" Foreground="#FFFFFF" />
+                    <TextBlock Grid.Column="2" Text="{Binding ActivityTypeText}" TextWrapping="Wrap" Foreground="#DBEAFE" />
+                    <TextBlock Grid.Column="3" Text="{Binding ResultText}" TextWrapping="Wrap" Foreground="#C9D5E8" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="RecentActivitiesEmptyTextBlock"
+                       Text="Není k dispozici"
+                       TextWrapping="Wrap"
+                       Classes="subtle"
+                       IsVisible="False" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

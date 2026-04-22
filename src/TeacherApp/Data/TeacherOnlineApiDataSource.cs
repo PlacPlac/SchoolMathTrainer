@@ -32,64 +32,79 @@ public sealed class TeacherOnlineApiDataSource
     public bool LastAuthorizationFailed { get; private set; }
     public string LastErrorMessage { get; private set; } = string.Empty;
 
-    public TeacherLoginResponse LoginTeacher(string username, string password)
+    public TeacherLoginClientResult LoginTeacher(string username, string password)
     {
         ClearAuthentication();
         ClearLastError();
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrEmpty(password))
         {
-            return new TeacherLoginResponse(false, "Vyplňte uživatelské jméno i heslo.");
+            return new TeacherLoginClientResult(false, "Vyplňte uživatelské jméno i heslo.");
         }
 
         try
         {
-            using var response = _httpClient.PostAsJsonAsync(
-                    "api/teachers/login",
-                    new TeacherLoginRequest(username.Trim(), password))
-                .GetAwaiter()
-                .GetResult();
+            using var response = SendTeacherLoginRequest(
+                "api/teacher-auth/login",
+                username,
+                password);
+            using var effectiveResponse = response.StatusCode == HttpStatusCode.NotFound
+                ? SendTeacherLoginRequest("api/teachers/login", username, password)
+                : response;
 
-            if (response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.Locked)
+            if (effectiveResponse.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.Locked)
             {
                 LastErrorMessage = "Příliš mnoho pokusů o přihlášení. Zkuste to později.";
-                return new TeacherLoginResponse(false, LastErrorMessage);
+                return new TeacherLoginClientResult(false, LastErrorMessage);
             }
 
-            if (IsUnauthorized(response.StatusCode))
+            if (IsUnauthorized(effectiveResponse.StatusCode))
             {
                 LastErrorMessage = "Přihlášení se nepodařilo. Zkontrolujte jméno a heslo.";
-                return new TeacherLoginResponse(false, LastErrorMessage);
+                return new TeacherLoginClientResult(false, LastErrorMessage);
             }
 
-            if (!response.IsSuccessStatusCode)
+            if (!effectiveResponse.IsSuccessStatusCode)
             {
                 LastErrorMessage = "Přihlášení učitele se nepodařilo ověřit na serveru.";
-                DiagnosticLogService.Log(LogName, $"Teacher login failed with HTTP {(int)response.StatusCode}.");
-                return new TeacherLoginResponse(false, LastErrorMessage);
+                DiagnosticLogService.Log(LogName, $"Teacher login failed with HTTP {(int)effectiveResponse.StatusCode}.");
+                return new TeacherLoginClientResult(false, LastErrorMessage);
             }
 
-            var login = response.Content.ReadFromJsonAsync<TeacherLoginResponse>()
+            var login = effectiveResponse.Content.ReadFromJsonAsync<TeacherLoginResponse>()
                 .GetAwaiter()
                 .GetResult();
-            if (login is null || !login.Success || string.IsNullOrWhiteSpace(login.Token))
+            if (login is null || string.IsNullOrWhiteSpace(login.Token))
             {
-                LastErrorMessage = login?.Message ?? "Server nevrátil platný učitelský token.";
-                return new TeacherLoginResponse(false, LastErrorMessage);
+                LastErrorMessage = "Server nevrátil platný učitelský token.";
+                return new TeacherLoginClientResult(false, LastErrorMessage);
             }
 
             _teacherToken = login.Token;
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _teacherToken);
-            DiagnosticLogService.Log(LogName, $"Teacher login completed for username '{login.Username}'. Token value was not logged.");
-            return login;
+            var normalizedUsername = username.Trim();
+            DiagnosticLogService.Log(LogName, $"Teacher login completed for username '{normalizedUsername}'. Token value was not logged.");
+            return new TeacherLoginClientResult(
+                true,
+                "Přihlášení učitele proběhlo úspěšně.",
+                login.Token,
+                login.ExpiresUtc,
+                normalizedUsername);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
         {
             LastErrorMessage = "Server pro přihlášení učitele není dostupný.";
             DiagnosticLogService.LogError(LogName, "Teacher login request failed", ex);
-            return new TeacherLoginResponse(false, LastErrorMessage);
+            return new TeacherLoginClientResult(false, LastErrorMessage);
         }
     }
+
+    private HttpResponseMessage SendTeacherLoginRequest(string relativePath, string username, string password) =>
+        _httpClient.PostAsJsonAsync(
+                relativePath,
+                new TeacherLoginRequest(username.Trim(), password))
+            .GetAwaiter()
+            .GetResult();
 
     public void ClearAuthentication()
     {
