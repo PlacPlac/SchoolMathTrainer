@@ -34,8 +34,15 @@ public sealed class StudentOnlineLoginService
 
         try
         {
-            var request = new StudentLoginRequest(loginCode, pin, newPin, _configuredStudentId);
-            var response = await _httpClient.PostAsJsonAsync($"api/classes/{Uri.EscapeDataString(_classId)}/login", request);
+            var endpoint = $"api/classes/{Uri.EscapeDataString(_classId)}/login";
+            var safeLoginCode = loginCode ?? string.Empty;
+            var safePin = pin ?? string.Empty;
+            var safeNewPin = newPin ?? string.Empty;
+            DiagnosticLogService.Log(
+                LogName,
+                $"Online login request: baseUrl='{_httpClient.BaseAddress}', scheme='{_httpClient.BaseAddress?.Scheme ?? "unknown"}', classId='{_classId}', configuredStudentId='{_configuredStudentId}', loginCode='{safeLoginCode.Trim()}', pin={DescribeSecret(safePin)}, newPin={DescribeSecret(safeNewPin)}, endpoint='{endpoint}'.");
+            var request = new StudentLoginRequest(safeLoginCode, safePin, safeNewPin, _configuredStudentId);
+            var response = await _httpClient.PostAsJsonAsync(endpoint, request);
             if (!response.IsSuccessStatusCode)
             {
                 DiagnosticLogService.Log(LogName, $"Online login failed with HTTP {(int)response.StatusCode} for class '{_classId}'.");
@@ -67,12 +74,21 @@ public sealed class StudentOnlineLoginService
 
     private static Uri CreateBaseAddress(string apiBaseUrl)
     {
-        var value = string.IsNullOrWhiteSpace(apiBaseUrl)
-            ? DataConnectionSettings.DefaultApiBaseUrl
-            : apiBaseUrl.Trim();
+        var value = DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
         value = value.EndsWith("/", StringComparison.Ordinal) ? value : $"{value}/";
         return Uri.TryCreate(value, UriKind.Absolute, out var uri)
             ? uri
             : new Uri($"{DataConnectionSettings.DefaultApiBaseUrl}/");
+    }
+
+    private static string DescribeSecret(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "missing";
+        }
+
+        var last = value[^1];
+        return $"present(len={value.Length},last=*{last})";
     }
 }

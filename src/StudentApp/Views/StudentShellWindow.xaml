@@ -29,7 +29,51 @@
             </StackPanel>
         </Border>
 
-        <views:StudentLoginView Grid.Row="1" Margin="0,10,0,8" DataContext="{Binding Login}" />
+        <views:StudentLoginView Grid.Row="1"
+                                Margin="0,10,0,8"
+                                DataContext="{Binding Login}">
+            <views:StudentLoginView.Style>
+                <Style TargetType="views:StudentLoginView">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsLoggedIn}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </views:StudentLoginView.Style>
+        </views:StudentLoginView>
+
+        <Border Grid.Row="1"
+                Margin="0,10,0,8">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource CardBorderStyle}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsLoggedIn}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="Žák je přihlášený" Style="{StaticResource SectionTitleStyle}" />
+                    <TextBlock Text="{Binding LoggedInStudentText}" Style="{StaticResource SubtitleStyle}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           Text="Přihlášení bylo dokončeno. Můžeš pokračovat do hry."
+                           Style="{StaticResource SubtitleStyle}"
+                           TextAlignment="Right" />
+            </Grid>
+        </Border>
 
         <ScrollViewer Grid.Row="2"
                       Margin="0,0,0,8"

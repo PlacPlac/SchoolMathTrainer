@@ -193,6 +193,18 @@ internal sealed class FileClassDataRepository : IClassDataRepository
 
         var classRoot = ResolveClassRoot(classId);
         var progressService = CreateProgressService(classRoot);
+        var beforeAccount = progressService.GetStudentAccounts()
+            .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
+        _logger.LogInformation(
+            "Student PIN reset requested. Class {ClassId}, student {StudentId}, classRoot {ClassRoot}, accountFound={AccountFound}, loginCode={LoginCode}, mustChangePin={MustChangePin}, temporaryPinPending={TemporaryPinPending}, accountFile={AccountFile}.",
+            classId,
+            studentId,
+            classRoot,
+            beforeAccount is not null,
+            beforeAccount?.LoginCode ?? "<missing>",
+            beforeAccount?.MustChangePin,
+            beforeAccount?.TemporaryPinPending,
+            Path.Combine(classRoot, "Config", "student-accounts.json"));
         var result = progressService.ResetStudentPin(studentId);
         if (result is null)
         {
@@ -200,6 +212,18 @@ internal sealed class FileClassDataRepository : IClassDataRepository
             return new TeacherStudentChangeResponse(false, "Žák nebyl nalezen. PIN nebyl resetován.", null);
         }
 
+        var persistedAccount = progressService.GetStudentAccounts()
+            .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
+        _logger.LogInformation(
+            "Student PIN reset persisted. Class {ClassId}, student {StudentId}, loginCode={LoginCode}, mustChangePin={MustChangePin}, temporaryPinPending={TemporaryPinPending}, pinSalt={PinSalt}, pinHash={PinHash}, hasEncryptedTemporaryPin={HasEncryptedTemporaryPin}.",
+            classId,
+            studentId,
+            persistedAccount?.LoginCode ?? result.Account.LoginCode,
+            persistedAccount?.MustChangePin ?? result.Account.MustChangePin,
+            persistedAccount?.TemporaryPinPending ?? result.Account.TemporaryPinPending,
+            DescribeStoredSecret(persistedAccount?.PinSalt ?? result.Account.PinSalt),
+            DescribeStoredSecret(persistedAccount?.PinHash ?? result.Account.PinHash),
+            !string.IsNullOrWhiteSpace(persistedAccount?.PendingTemporaryPinEncrypted ?? result.Account.PendingTemporaryPinEncrypted));
         _logger.LogInformation("Student PIN reset completed for class {ClassId}, student {StudentId}. Temporary PIN value was not logged.", classId, studentId);
         return new TeacherStudentChangeResponse(
             true,
@@ -240,24 +264,65 @@ internal sealed class FileClassDataRepository : IClassDataRepository
 
         var classRoot = ResolveClassRoot(classId);
         var progressService = CreateProgressService(classRoot);
+        var trimmedLoginCode = request.LoginCode?.Trim() ?? string.Empty;
+        var trimmedStudentId = request.StudentId?.Trim() ?? string.Empty;
+        var accountByLoginCode = progressService.GetStudentAccounts()
+            .FirstOrDefault(item => string.Equals(item.LoginCode, trimmedLoginCode, StringComparison.OrdinalIgnoreCase));
+        _logger.LogInformation(
+            "Student login request received. Class {ClassId}, classRoot {ClassRoot}, requestStudentId={RequestStudentId}, requestLoginCode={RequestLoginCode}, pin={Pin}, newPin={NewPin}, accountByLoginCodeFound={AccountByLoginCodeFound}, accountByLoginCodeStudentId={AccountByLoginCodeStudentId}, accountByLoginCodeActive={AccountByLoginCodeActive}, accountByLoginCodeMustChangePin={AccountByLoginCodeMustChangePin}, accountByLoginCodeTemporaryPinPending={AccountByLoginCodeTemporaryPinPending}.",
+            classId,
+            classRoot,
+            string.IsNullOrWhiteSpace(trimmedStudentId) ? "<missing>" : trimmedStudentId,
+            trimmedLoginCode,
+            DescribeRequestSecret(request.Pin),
+            DescribeRequestSecret(request.NewPin),
+            accountByLoginCode is not null,
+            accountByLoginCode?.StudentId ?? "<missing>",
+            accountByLoginCode?.IsActive,
+            accountByLoginCode?.MustChangePin,
+            accountByLoginCode?.TemporaryPinPending);
         if (!string.IsNullOrWhiteSpace(request.StudentId))
         {
             ValidateSegment(request.StudentId, nameof(request.StudentId));
             var configuredAccount = progressService.GetStudentAccounts()
                 .FirstOrDefault(item => item.IsActive &&
                     string.Equals(item.StudentId, request.StudentId.Trim(), StringComparison.OrdinalIgnoreCase));
-            if (configuredAccount is null ||
-                !string.Equals(configuredAccount.LoginCode, request.LoginCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            _logger.LogInformation(
+                "Student login configured account lookup. Class {ClassId}, requestStudentId={RequestStudentId}, configuredAccountFound={ConfiguredAccountFound}, configuredAccountLoginCode={ConfiguredAccountLoginCode}, configuredAccountMustChangePin={ConfiguredAccountMustChangePin}, configuredAccountTemporaryPinPending={ConfiguredAccountTemporaryPinPending}.",
+                classId,
+                trimmedStudentId,
+                configuredAccount is not null,
+                configuredAccount?.LoginCode ?? "<missing>",
+                configuredAccount?.MustChangePin,
+                configuredAccount?.TemporaryPinPending);
+            if (configuredAccount is null)
             {
-                _logger.LogWarning("Student login rejected because login code does not match configured student. Class {ClassId}, student {StudentId}.", classId, request.StudentId);
-                return StudentLoginResult.Failed("Přihlašovací kód nebo PIN nesedí.");
+                _logger.LogWarning("Student login rejected because configured student was not found. Class {ClassId}, student {StudentId}.", classId, request.StudentId);
+                return StudentLoginResult.StudentConfigurationMismatch("Soubor od paní učitelky pro tohoto žáka už není platný. Načti prosím nový soubor.");
+            }
+
+            if (!string.Equals(configuredAccount.LoginCode, trimmedLoginCode, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Student login rejected because login code {LoginCode} does not match configured student {StudentId}. Class {ClassId}.", request.LoginCode, request.StudentId, classId);
+                return StudentLoginResult.StudentConfigurationMismatch("Zadaný přihlašovací kód patří jinému žákovi než soubor od paní učitelky. Načti správný soubor pro tohoto žáka.");
             }
         }
 
-        return progressService.LoginStudent(
+        var loginResult = progressService.LoginStudent(
             request.LoginCode ?? string.Empty,
             request.Pin ?? string.Empty,
             request.NewPin ?? string.Empty);
+        _logger.LogInformation(
+            "Student login result. Class {ClassId}, requestStudentId={RequestStudentId}, requestLoginCode={RequestLoginCode}, success={Success}, requiresPinChange={RequiresPinChange}, requiresStudentConfigurationReload={RequiresStudentConfigurationReload}, resultStudentId={ResultStudentId}, message={Message}.",
+            classId,
+            string.IsNullOrWhiteSpace(trimmedStudentId) ? "<missing>" : trimmedStudentId,
+            trimmedLoginCode,
+            loginResult.Success,
+            loginResult.RequiresPinChange,
+            loginResult.RequiresStudentConfigurationReload,
+            string.IsNullOrWhiteSpace(loginResult.StudentId) ? "<missing>" : loginResult.StudentId,
+            loginResult.Message);
+        return loginResult;
     }
 
     public SaveStudentResultResponse SaveStudentResult(string classId, string studentId, StudentSession session)
@@ -530,6 +595,26 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         {
             throw new ArgumentException($"{parameterName} is not valid.", parameterName);
         }
+    }
+
+    private static string DescribeStoredSecret(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "missing";
+        }
+
+        return $"present(len={value.Length},prefix={value[..Math.Min(6, value.Length)]})";
+    }
+
+    private static string DescribeRequestSecret(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "missing";
+        }
+
+        return $"present(len={value.Length},last=*{value[^1]})";
     }
 
     private sealed record AccountReadResult(bool Success, string Message, IReadOnlyList<StudentAccount> Accounts);

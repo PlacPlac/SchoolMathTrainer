@@ -11,6 +11,7 @@ public sealed class StudentShellViewModel : BaseViewModel
     private readonly Action _closeAction;
     private readonly Func<bool> _importStudentConfiguration;
     private string _headerText = "Školní počítání do 20";
+    private string _loggedInStudentText = "Přihlášený žák: -";
     private int _selectedTabIndex;
     private bool _isLoggedIn;
 
@@ -58,6 +59,12 @@ public sealed class StudentShellViewModel : BaseViewModel
     {
         get => _selectedTabIndex;
         set => SetProperty(ref _selectedTabIndex, value);
+    }
+
+    public string LoggedInStudentText
+    {
+        get => _loggedInStudentText;
+        set => SetProperty(ref _loggedInStudentText, value);
     }
 
     public bool IsLoggedIn
@@ -133,6 +140,9 @@ public sealed class StudentShellViewModel : BaseViewModel
         HeaderText = IsLoggedIn
             ? $"Školní počítání do 20 - {_progressService.CurrentStudentName}"
             : "Školní počítání do 20";
+        LoggedInStudentText = IsLoggedIn
+            ? $"Přihlášen jako: {_progressService.CurrentStudentName}"
+            : "Přihlášený žák: -";
         BeginnerQuiz.UpdateCurrentStudent();
         MyResults.Refresh();
         ClassResults.Refresh();

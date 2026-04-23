@@ -64,10 +64,11 @@ dotnet run --project .\src\SchoolMathTrainer.TeacherAdmin\SchoolMathTrainer.Teac
 ## Server produkce
 
 - VPS: `89.221.212.49`
-- veřejný vstup: `http://89.221.212.49`
+- klientský veřejný vstup: `http://89.221.212.49`
 - nginx reverse proxy: ano
 - API runtime: `127.0.0.1:5078`
-- veřejný přístup: port `80`
+- klientský veřejný přístup: port `80`
+- serverové HTTPS je připravené na `https://89.221.212.49` a portu `443`, ale klientská IP-based TLS kompatibilita ve Windows zatím není spolehlivá, proto klienti dočasně používají HTTP.
 - API data root: `/var/lib/schoolmath/data`
 - produkční třída: `/var/lib/schoolmath/data/production`
 - security data: `/var/lib/schoolmath/data/security`
@@ -171,7 +172,8 @@ sample-data/                      Lokální vzorová file-based data
 ## Bezpečnost
 
 - API není veřejně vystavené přímo; Kestrel běží na `127.0.0.1:5078`.
-- Veřejný HTTP vstup jde přes nginx reverse proxy.
+- Klientský veřejný HTTP vstup jde dočasně přes nginx reverse proxy.
+- Serverové HTTPS zůstává nasazené, ale klientská IP-based TLS kompatibilita ve Windows zatím není spolehlivá.
 - Teacher endpointy jsou chráněné Bearer tokenem.
 - Teacher token je server-side session token; server ukládá pouze hash tokenu.
 - Teacher token se neukládá do student konfigurace.
@@ -227,7 +229,7 @@ Po spuštění ověř:
 
 - rate limiting v nginx
 - pravidelný backup dat
-- HTTPS
+- HTTPS na serveru: hotovo, klientská produkční URL je dočasně HTTP
 - alert tuning
 - Cockpit
 - admin role pro správu učitelů

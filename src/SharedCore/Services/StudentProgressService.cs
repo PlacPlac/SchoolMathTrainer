@@ -501,9 +501,15 @@ public sealed class StudentProgressService
     private IReadOnlyList<ClassOverviewItem> BuildClassOverviewFromStoredResults()
     {
         var overview = _statisticsService.BuildClassOverview(GetAllSessions()).ToList();
-        var accounts = LoadStudentAccounts();
+        var activeAccounts = LoadStudentAccounts()
+            .Where(account => account.IsActive)
+            .ToDictionary(account => account.StudentId, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var account in accounts)
+        overview = overview
+            .Where(item => activeAccounts.ContainsKey(item.StudentId))
+            .ToList();
+
+        foreach (var account in activeAccounts.Values)
         {
             var item = overview.FirstOrDefault(existing => string.Equals(existing.StudentId, account.StudentId, StringComparison.OrdinalIgnoreCase));
             if (item is null)

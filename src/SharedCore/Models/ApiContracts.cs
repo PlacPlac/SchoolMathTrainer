@@ -101,4 +101,14 @@ public sealed class DataConnectionSettings
     public ApplicationDataMode Mode { get; set; } = ApplicationDataMode.LocalFiles;
     public string ApiBaseUrl { get; set; } = DefaultApiBaseUrl;
     public string ClassId { get; set; } = DefaultClassId;
+
+    public static string NormalizeApiBaseUrl(string? apiBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(apiBaseUrl))
+        {
+            return DefaultApiBaseUrl;
+        }
+
+        return apiBaseUrl.Trim();
+    }
 }

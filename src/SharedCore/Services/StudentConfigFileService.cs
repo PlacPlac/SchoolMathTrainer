@@ -28,9 +28,7 @@ public sealed class StudentConfigFileService
 
     private static string ResolveApiBaseUrl(string apiBaseUrl)
     {
-        return string.IsNullOrWhiteSpace(apiBaseUrl)
-            ? DataConnectionSettings.DefaultApiBaseUrl
-            : apiBaseUrl.Trim();
+        return DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
     }
 
     private sealed class StudentConfigExport

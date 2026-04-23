@@ -79,7 +79,7 @@ public sealed class SharedDataFolderSettingsService
                 ClassId = settings?.ClassId ?? string.Empty,
                 ClassFolderName = settings?.ClassFolderName ?? Path.GetFileName(fullPath),
                 StudentId = settings?.StudentId ?? string.Empty,
-                ApiBaseUrl = settings?.ApiBaseUrl ?? string.Empty,
+                ApiBaseUrl = DataConnectionSettings.NormalizeApiBaseUrl(settings?.ApiBaseUrl),
                 IsStudentConfigurationImported = settings?.IsStudentConfigurationImported == true,
                 Message = $"Používá se společná datová složka: {fullPath}"
             };
@@ -231,9 +231,7 @@ public sealed class SharedDataFolderSettingsService
 
     private static string ResolveApiBaseUrl(string apiBaseUrl)
     {
-        return string.IsNullOrWhiteSpace(apiBaseUrl)
-            ? DataConnectionSettings.DefaultApiBaseUrl
-            : apiBaseUrl.Trim();
+        return DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
     }
 
     private static SharedDataFolderSettingsResult CreateInvalidResult(

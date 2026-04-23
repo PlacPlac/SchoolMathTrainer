@@ -4,6 +4,7 @@ public sealed class StudentLoginResult
 {
     public bool Success { get; init; }
     public bool RequiresPinChange { get; init; }
+    public bool RequiresStudentConfigurationReload { get; init; }
     public string Message { get; init; } = string.Empty;
     public string StudentId { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
@@ -18,6 +19,13 @@ public sealed class StudentLoginResult
     {
         Success = false,
         RequiresPinChange = true,
+        Message = message
+    };
+
+    public static StudentLoginResult StudentConfigurationMismatch(string message) => new()
+    {
+        Success = false,
+        RequiresStudentConfigurationReload = true,
         Message = message
     };
 

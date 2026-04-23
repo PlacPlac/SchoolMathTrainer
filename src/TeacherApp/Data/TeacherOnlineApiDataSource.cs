@@ -448,9 +448,7 @@ public sealed class TeacherOnlineApiDataSource
 
     private static Uri CreateBaseAddress(string apiBaseUrl)
     {
-        var value = string.IsNullOrWhiteSpace(apiBaseUrl)
-            ? DataConnectionSettings.DefaultApiBaseUrl
-            : apiBaseUrl.Trim();
+        var value = DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
         value = value.EndsWith("/", StringComparison.Ordinal) ? value : $"{value}/";
         return Uri.TryCreate(value, UriKind.Absolute, out var uri)
             ? uri

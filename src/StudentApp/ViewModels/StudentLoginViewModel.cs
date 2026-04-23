@@ -98,7 +98,9 @@ public sealed class StudentLoginViewModel : BaseViewModel
             IsLoginInProgress = false;
         }
 
-        WelcomeMessage = result.Message;
+        WelcomeMessage = result.RequiresStudentConfigurationReload
+            ? $"{result.Message} Klikni na Změnit žáka a načti správný soubor od paní učitelky."
+            : result.Message;
         IsNewPinRequired = result.RequiresPinChange;
 
         if (!result.Success)

@@ -28,7 +28,8 @@ Aktuální učitelské rozhraní je `TeacherApp`.
 - StudentApp onboarding funguje přes `.smtcfg`.
 - Produkční server je `89.221.212.49`.
 - API běží interně na `127.0.0.1:5078`.
-- Veřejný vstup jde přes nginx na portu `80`.
+- Klientský veřejný vstup jde dočasně přes nginx přes HTTP.
+- Serverové HTTPS je připravené, ale klientská IP-based TLS kompatibilita ve Windows zatím není spolehlivá.
 
 ## Lokální spuštění
 
@@ -65,9 +66,12 @@ dotnet run --project .\src\SchoolMathTrainer.TeacherAdmin\SchoolMathTrainer.Teac
 ## Produkční server
 
 - host: `89.221.212.49`
-- veřejná URL: `http://89.221.212.49`
+- klientská veřejná URL: `http://89.221.212.49`
 - reverse proxy: nginx
-- veřejný port: `80`
+- klientský veřejný port: `80`
+- serverové HTTPS: `https://89.221.212.49`
+- HTTPS port: `443`
+- poznámka: serverové HTTPS je připravené, ale klientská IP-based TLS kompatibilita ve Windows zatím není spolehlivá, proto klienti dočasně používají HTTP.
 - interní API: `http://127.0.0.1:5078`
 - runtime složka: `/home/schoolmath/api`
 - runtime DLL: `/home/schoolmath/api/SchoolMathTrainer.Api.dll`
@@ -298,7 +302,7 @@ Aktuální stav:
 
 Ještě připravit:
 
-- HTTPS
+- HTTPS na serveru: hotovo, klientská produkční URL je dočasně HTTP
 - nginx rate limiting
 - pravidelné zálohy
 - alert tuning
