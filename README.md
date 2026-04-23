@@ -224,6 +224,19 @@ Po spuštění ověř:
 8. StudentApp při prvním spuštění importuje `.smtcfg`.
 9. Student login funguje bez teacher tokenu.
 10. Odeslání výsledků ze StudentApp funguje bez teacher tokenu.
+11. Po úspěšném student loginu se ve StudentApp už nezobrazuje login formulář a je vidět stav přihlášeného žáka.
+12. Pokud onboarding soubor neodpovídá zadanému `loginCode`, StudentApp odmítne login jako nesoulad konfigurace žáka.
+13. Po resetu PINu v TeacherApp je nový dočasný PIN použitelný pro stejného žáka ve StudentApp.
+14. Po smazání žáka v TeacherApp zmizí žák i z `Třídní výsledky` ve StudentApp.
+
+## Poznámky k datům a overview
+
+- StudentApp čte `Třídní výsledky` z veřejného přehledu `Data/Public/class-overview.json`.
+- Veřejný přehled se regeneruje z uložených session dat a student účtů.
+- Do veřejného přehledu se propisují jen existující aktivní účty.
+- Orphaned session-derived položky bez aktivního účtu se do `class-overview.json` už nesmí dostat.
+- Smazání žáka maže účet, legacy session data, legacy summary data i `Data/StudentResults/<studentId>`.
+- Po smazání žáka se veřejný přehled znovu regeneruje, aby StudentApp nečetla stale data.
 
 ## TODO / roadmap
 

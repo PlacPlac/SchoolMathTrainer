@@ -188,6 +188,14 @@ Student endpointy nevyžadují teacher token:
 
 To je záměr kvůli StudentApp workflow a onboarding souboru.
 
+Aktuální poznámky ke student login flow:
+
+- StudentApp při online loginu posílá `loginCode`, PIN, volitelný `newPin` a `studentId` z importovaného `.smtcfg`.
+- Backend váže student login na onboarding `studentId`.
+- Pokud `loginCode` patří jinému žákovi než importovaný `.smtcfg`, login se odmítne jako nesoulad konfigurace žáka.
+- Po resetu PINu v TeacherApp je nový dočasný PIN platný pro stejného žáka, pro kterého byl reset proveden.
+- Pokud je PIN dočasný, backend vrátí požadavek na změnu PINu a StudentApp pokračuje ve flow změny PINu.
+
 ## Onboarding žáka
 
 1. Učitel se přihlásí v `TeacherApp`.
@@ -254,6 +262,13 @@ Funkce:
 - vynucení změny dočasného PINu
 - procvičování
 - odeslání výsledků na server
+- po úspěšném přihlášení skryje login formulář a zobrazí stavový panel s přihlášeným žákem
+
+Třídní výsledky:
+
+- StudentApp čte třídní výsledky z veřejného přehledu `Data/Public/class-overview.json`.
+- Zobrazené položky mají odpovídat jen existujícím aktivním student účtům.
+- Smazaný žák se nemá dál zobrazovat v `Třídní výsledky`.
 
 Lokální spuštění:
 
@@ -341,6 +356,20 @@ Po změnách ověř:
 11. StudentApp při prvním spuštění importuje `.smtcfg`.
 12. Student login funguje bez teacher tokenu.
 13. Student upload výsledků funguje bez teacher tokenu.
+14. Po úspěšném loginu StudentApp skryje login formulář a zobrazí stav přihlášeného žáka.
+15. Po resetu PINu v TeacherApp projde login novým dočasným PINem pro stejného žáka.
+16. Po smazání žáka v TeacherApp zmizí žák i z `Třídní výsledky` ve StudentApp.
+17. Orphaned session-derived data se po regeneraci overview už do `class-overview.json` nepropíšou.
+
+## Poznámky k mazání žáka
+
+- TeacherApp maže žáka přes `DELETE /api/students/{classId}/{studentId}`.
+- Backend při mazání odstraňuje účet ze `Config/student-accounts.json`.
+- Backend maže legacy sessions z `Data/Sessions`.
+- Backend maže legacy summaries z `Data/Students`.
+- Backend maže student-specific výsledky z `Data/StudentResults/<studentId>`.
+- Po smazání backend regeneruje veřejný přehled `Data/Public/class-overview.json`.
+- Regenerace overview nově filtruje výsledné položky tak, aby zůstali jen existující aktivní žáci.
 
 ## Užitečné příkazy
 
