@@ -20,6 +20,11 @@ builder.Services.AddSingleton(serviceProvider =>
     var teacherStore = serviceProvider.GetRequiredService<TeacherAccountStore>();
     return new StudentLoginLockoutStore(teacherStore.SecurityDirectory);
 });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var teacherStore = serviceProvider.GetRequiredService<TeacherAccountStore>();
+    return new StudentSessionTokenService(teacherStore.SecurityDirectory);
+});
 builder.Services.AddSingleton<TeacherLoginLockoutStore>();
 builder.Services.AddSingleton<TeacherTokenService>();
 builder.Services.AddSingleton<TeacherAuthAuditLogger>();
@@ -316,7 +321,7 @@ app.MapDelete("/api/students/{classId}/{studentId}", (string classId, string stu
     }
 });
 
-app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest request, HttpContext httpContext, IClassDataRepository repository, StudentLoginLockoutStore studentLoginLockouts) =>
+app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest request, HttpContext httpContext, IClassDataRepository repository, StudentLoginLockoutStore studentLoginLockouts, StudentSessionTokenService studentSessionTokens) =>
 {
     var safeRequest = request ?? new StudentLoginRequest(string.Empty, string.Empty, string.Empty);
     var remoteAddress = GetRemoteAddress(httpContext);
@@ -331,7 +336,24 @@ app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest
         }
 
         var result = repository.LoginStudent(classId, safeRequest);
-        if (result.Success || result.RequiresPinChange)
+        if (result.Success)
+        {
+            studentLoginLockouts.RegisterSuccess(classId, loginCode, remoteAddress);
+            var tokenIssue = studentSessionTokens.IssueToken(classId, result.StudentId);
+            return Results.Ok(new StudentLoginResult
+            {
+                Success = result.Success,
+                RequiresPinChange = result.RequiresPinChange,
+                RequiresStudentConfigurationReload = result.RequiresStudentConfigurationReload,
+                Message = result.Message,
+                StudentId = result.StudentId,
+                DisplayName = result.DisplayName,
+                StudentSessionToken = tokenIssue.Token,
+                StudentSessionExpiresUtc = tokenIssue.ExpiresUtc
+            });
+        }
+
+        if (result.RequiresPinChange)
         {
             studentLoginLockouts.RegisterSuccess(classId, loginCode, remoteAddress);
             return Results.Ok(result);
@@ -358,10 +380,16 @@ app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest
     }
 });
 
-app.MapPost("/api/students/{classId}/{studentId}/results", (string classId, string studentId, StudentSession session, IClassDataRepository repository) =>
+app.MapPost("/api/students/{classId}/{studentId}/results", (string classId, string studentId, StudentSession session, HttpContext httpContext, IClassDataRepository repository, StudentSessionTokenService studentSessionTokens) =>
 {
     try
     {
+        if (!TryReadBearerToken(httpContext.Request, out var token) ||
+            !studentSessionTokens.ValidateToken(token, classId, studentId).Success)
+        {
+            return CreateStudentAuthorizationRequiredResult();
+        }
+
         var result = repository.SaveStudentResult(classId, studentId, session);
         return Results.Created($"/api/students/{classId}/{studentId}", result);
     }
@@ -423,6 +451,11 @@ static IResult CreateStudentLoginLockedResult(HttpContext httpContext, TimeSpan 
         new ApiMessageResponse("Příliš mnoho neúspěšných pokusů. Zkuste to prosím později."),
         statusCode: StatusCodes.Status423Locked);
 }
+
+static IResult CreateStudentAuthorizationRequiredResult() =>
+    Results.Json(
+        new ApiMessageResponse("Přihlášení žáka vypršelo. Přihlas se prosím znovu."),
+        statusCode: StatusCodes.Status401Unauthorized);
 
 static string GetRemoteAddress(HttpContext httpContext) =>
     httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";

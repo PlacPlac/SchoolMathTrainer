@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
@@ -222,6 +222,16 @@ public sealed class AdvancedDragDropViewModel : BaseViewModel
         {
             await _onlineResultService.SaveCompletedRoundAsync(_session);
             RoundSaveStatus = "Výsledek kola byl odeslán na server.";
+        }
+        catch (StudentSessionAuthorizationException ex)
+        {
+            _progressService.LogoutStudent();
+            RoundSaveStatus = "Výsledek kola zůstal uložený lokálně. Přihlášení vypršelo, přihlas se prosím znovu.";
+            MessageBox.Show(
+                ex.Message,
+                "Přihlášení vypršelo",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
         {

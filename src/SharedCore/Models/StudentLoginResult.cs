@@ -8,6 +8,8 @@ public sealed class StudentLoginResult
     public string Message { get; init; } = string.Empty;
     public string StudentId { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
+    public string StudentSessionToken { get; init; } = string.Empty;
+    public DateTime? StudentSessionExpiresUtc { get; init; }
 
     public static StudentLoginResult Failed(string message) => new()
     {

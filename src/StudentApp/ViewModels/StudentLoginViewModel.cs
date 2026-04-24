@@ -8,6 +8,7 @@ public sealed class StudentLoginViewModel : BaseViewModel
 {
     private readonly StudentProgressService _progressService;
     private readonly StudentOnlineLoginService? _onlineLoginService;
+    private readonly StudentOnlineResultService? _onlineResultService;
     private string _loginCode = string.Empty;
     private string _pin = string.Empty;
     private string _newPin = string.Empty;
@@ -17,10 +18,12 @@ public sealed class StudentLoginViewModel : BaseViewModel
 
     public StudentLoginViewModel(
         StudentProgressService progressService,
-        StudentOnlineLoginService? onlineLoginService)
+        StudentOnlineLoginService? onlineLoginService,
+        StudentOnlineResultService? onlineResultService = null)
     {
         _progressService = progressService;
         _onlineLoginService = onlineLoginService;
+        _onlineResultService = onlineResultService;
         LoginCommand = new RelayCommand(LoginStudent);
     }
 
@@ -67,6 +70,7 @@ public sealed class StudentLoginViewModel : BaseViewModel
     public void PrepareForStudentChange()
     {
         _progressService.LogoutStudent();
+        _onlineResultService?.ClearSessionAuthorization();
         Pin = string.Empty;
         NewPin = string.Empty;
         IsNewPinRequired = false;
@@ -105,6 +109,7 @@ public sealed class StudentLoginViewModel : BaseViewModel
 
         if (!result.Success)
         {
+            _onlineResultService?.ClearSessionAuthorization();
             return;
         }
 
@@ -113,6 +118,10 @@ public sealed class StudentLoginViewModel : BaseViewModel
         IsNewPinRequired = false;
         if (_onlineLoginService?.IsAvailable == true)
         {
+            _onlineResultService?.SetSessionAuthorization(
+                result.StudentSessionToken,
+                result.StudentSessionExpiresUtc,
+                result.StudentId);
             _progressService.CompleteExternalLogin(result.StudentId, result.DisplayName);
         }
 

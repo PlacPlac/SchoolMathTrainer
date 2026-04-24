@@ -28,7 +28,7 @@ public sealed class StudentShellViewModel : BaseViewModel
         _importStudentConfiguration = importStudentConfiguration;
         _closeAction = closeAction;
 
-        Login = new StudentLoginViewModel(_progressService, onlineLoginService);
+        Login = new StudentLoginViewModel(_progressService, onlineLoginService, onlineResultService);
         BeginnerQuiz = new BeginnerQuizViewModel(_progressService, mathProblemGenerator, loggingService, onlineResultService);
         AdvancedDragDrop = new AdvancedDragDropViewModel(_progressService, mathProblemGenerator, loggingService, onlineResultService);
         MyResults = new MyResultsViewModel(_progressService);

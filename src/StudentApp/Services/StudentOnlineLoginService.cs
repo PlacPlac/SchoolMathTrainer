@@ -62,6 +62,11 @@ public sealed class StudentOnlineLoginService
                 return StudentLoginResult.Failed("Server nevrátil platnou odpověď pro přihlášení.");
             }
 
+            if (result.Success && string.IsNullOrWhiteSpace(result.StudentSessionToken))
+            {
+                return StudentLoginResult.Failed("Server nevrátil platnou autorizaci pro žáka.");
+            }
+
             if (result.Success &&
                 !string.Equals(result.StudentId, _configuredStudentId, StringComparison.OrdinalIgnoreCase))
             {
