@@ -19,6 +19,12 @@ public sealed class TeacherSftpReadOnlyDataSource
             return CreateFailure(validationMessage);
         }
 
+        var knownHostsValidationMessage = ValidateKnownHosts(settings);
+        if (!string.IsNullOrWhiteSpace(knownHostsValidationMessage))
+        {
+            return CreateFailure(knownHostsValidationMessage);
+        }
+
         var cacheRoot = CreateCacheRoot(settings);
         Directory.CreateDirectory(cacheRoot);
         Directory.CreateDirectory(Path.Combine(cacheRoot, "Config"));
@@ -184,8 +190,75 @@ public sealed class TeacherSftpReadOnlyDataSource
     private static string BuildSftpArguments(TeacherServerSettings settings)
     {
         var endpoint = $"{settings.Username.Trim()}@{settings.Host.Trim()}";
-        return $"-q -oBatchMode=yes -oStrictHostKeyChecking=accept-new -P {settings.Port} {endpoint}";
+        var knownHostsPath = QuoteArgument(GetKnownHostsPath());
+        return $"-q -oBatchMode=yes -oStrictHostKeyChecking=yes -oUserKnownHostsFile={knownHostsPath} -P {settings.Port} {endpoint}";
     }
+
+    private static string ValidateKnownHosts(TeacherServerSettings settings)
+    {
+        var knownHostsPath = GetKnownHostsPath();
+        if (!File.Exists(knownHostsPath))
+        {
+            return "Chybí ověřený SSH host key serveru. Nejdříve proveďte bezpečné ověření a uložení host key.";
+        }
+
+        if (!HasKnownHostsEntry(knownHostsPath, settings.Host, settings.Port))
+        {
+            return "Chybí ověřený SSH host key serveru. Nejdříve proveďte bezpečné ověření a uložení host key.";
+        }
+
+        return string.Empty;
+    }
+
+    private static bool HasKnownHostsEntry(string knownHostsPath, string host, int port)
+    {
+        var normalizedHost = host.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedHost))
+        {
+            return false;
+        }
+
+        var expectedHosts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            normalizedHost
+        };
+
+        if (port != 22)
+        {
+            expectedHosts.Add($"[{normalizedHost}]:{port}");
+        }
+
+        foreach (var rawLine in File.ReadLines(knownHostsPath, Encoding.UTF8))
+        {
+            var line = rawLine.Trim();
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            {
+                continue;
+            }
+
+            var firstWhitespace = line.IndexOfAny([' ', '\t']);
+            if (firstWhitespace <= 0)
+            {
+                continue;
+            }
+
+            var hosts = line[..firstWhitespace]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (hosts.Any(expectedHosts.Contains))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string GetKnownHostsPath() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SchoolMathTrainer",
+            "ssh",
+            "known_hosts");
 
     private static IReadOnlyList<string> ParseRemoteFileList(string output) =>
         output
@@ -207,6 +280,9 @@ public sealed class TeacherSftpReadOnlyDataSource
 
     private static string QuoteSftpPath(string path) =>
         $"\"{path.Replace("\\", "/", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+
+    private static string QuoteArgument(string value) =>
+        $"\"{value.Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
 
     private static TeacherSftpReadOnlyLoadResult CreateFailure(string message) =>
         new()
