@@ -82,7 +82,6 @@ public sealed class StudentProgressService
             SetAccountPin(account, newPin);
             account.MustChangePin = false;
             account.TemporaryPinPending = false;
-            account.PendingTemporaryPinEncrypted = null;
             SaveStudentAccounts(ReplaceAccount(account));
         }
 
@@ -254,7 +253,6 @@ public sealed class StudentProgressService
             PinResetAt = DateTime.UtcNow
         };
         SetAccountPin(account, temporaryPin);
-        account.PendingTemporaryPinEncrypted = EncryptTemporaryPin(temporaryPin, account);
 
         accounts.Add(account);
         SaveStudentAccounts(accounts);
@@ -339,32 +337,11 @@ public sealed class StudentProgressService
         SetAccountPin(account, temporaryPin);
         account.MustChangePin = true;
         account.TemporaryPinPending = true;
-        account.PendingTemporaryPinEncrypted = EncryptTemporaryPin(temporaryPin, account);
         account.PinResetAt = DateTime.UtcNow;
         SaveStudentAccounts(accounts);
         OnDataChanged();
 
         return new StudentAccountChangeResult { Account = account, TemporaryPin = temporaryPin };
-    }
-
-    public string? GetPendingTemporaryPin(string studentId)
-    {
-        var account = LoadStudentAccounts()
-            .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
-        if (account is null ||
-            !account.TemporaryPinPending ||
-            string.IsNullOrWhiteSpace(account.PendingTemporaryPinEncrypted))
-        {
-            return null;
-        }
-
-        if (TryDecryptTemporaryPin(account.PendingTemporaryPinEncrypted, account, out var temporaryPin))
-        {
-            return temporaryPin;
-        }
-
-        _loggingService.Log($"Pending temporary PIN decrypt failed for {account.DisplayName} ({account.StudentId}).");
-        return null;
     }
 
     public (bool Success, bool ResultsDeleted) DeleteStudentAndResults(string studentId)
@@ -671,7 +648,6 @@ public sealed class StudentProgressService
             };
             var temporaryPin = GeneratePin();
             SetAccountPin(account, temporaryPin);
-            account.PendingTemporaryPinEncrypted = EncryptTemporaryPin(temporaryPin, account);
             accounts.Add(account);
             changed = true;
         }
@@ -784,16 +760,6 @@ public sealed class StudentProgressService
         var hash = Rfc2898DeriveBytes.Pbkdf2(pin, salt, PinHashIterations, HashAlgorithmName.SHA256, PinHashBytes);
         account.PinSalt = Convert.ToBase64String(salt);
         account.PinHash = Convert.ToBase64String(hash);
-    }
-
-    private static string EncryptTemporaryPin(string pin, StudentAccount account)
-    {
-        return PendingTemporaryPinProtector.Protect(pin, account);
-    }
-
-    private static bool TryDecryptTemporaryPin(string encryptedPin, StudentAccount account, out string temporaryPin)
-    {
-        return PendingTemporaryPinProtector.TryUnprotect(encryptedPin, account, out temporaryPin);
     }
 
     private static bool VerifyPin(string pin, string saltText, string hashText)

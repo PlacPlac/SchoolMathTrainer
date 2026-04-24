@@ -96,6 +96,8 @@ public sealed record StudentLoginRequest(
 public sealed class DataConnectionSettings
 {
     public const string DefaultApiBaseUrl = "http://89.221.212.49";
+    public const string AllowedClientApiBaseUrl = "http://89.221.212.49";
+    public const string AllowedClientApiHost = "89.221.212.49";
     public const string DefaultClassId = "production";
 
     public ApplicationDataMode Mode { get; set; } = ApplicationDataMode.LocalFiles;
@@ -110,5 +112,76 @@ public sealed class DataConnectionSettings
         }
 
         return apiBaseUrl.Trim();
+    }
+
+    public static string NormalizeClientApiBaseUrl(string? apiBaseUrl)
+    {
+        if (!TryNormalizeClientApiBaseUrl(apiBaseUrl, out var normalizedApiBaseUrl, out var errorMessage))
+        {
+            throw new ArgumentException(errorMessage, nameof(apiBaseUrl));
+        }
+
+        return normalizedApiBaseUrl;
+    }
+
+    public static bool TryNormalizeClientApiBaseUrl(
+        string? apiBaseUrl,
+        out string normalizedApiBaseUrl,
+        out string errorMessage)
+    {
+        normalizedApiBaseUrl = string.Empty;
+        errorMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(apiBaseUrl))
+        {
+            errorMessage = $"Adresa serveru pro žáka chybí. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        var trimmedValue = apiBaseUrl.Trim();
+        if (!Uri.TryCreate(trimmedValue, UriKind.Absolute, out var uri))
+        {
+            errorMessage = $"Adresa serveru pro žáka není platná. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            errorMessage = $"Adresa serveru pro žáka nesmí obsahovat uživatelské údaje. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!string.Equals(uri.Host, AllowedClientApiHost, StringComparison.OrdinalIgnoreCase))
+        {
+            errorMessage = $"Soubor od paní učitelky obsahuje nepovolenou adresu serveru. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            errorMessage = $"Adresa serveru pro žáka musí používat HTTP. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!uri.IsDefaultPort && uri.Port != 80)
+        {
+            errorMessage = $"Adresa serveru pro žáka nesmí používat vlastní port. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.AbsolutePath) && uri.AbsolutePath != "/")
+        {
+            errorMessage = $"Adresa serveru pro žáka nesmí obsahovat další cestu. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+        {
+            errorMessage = $"Adresa serveru pro žáka nesmí obsahovat parametry ani kotvu. Povolená adresa je pouze {AllowedClientApiBaseUrl}.";
+            return false;
+        }
+
+        normalizedApiBaseUrl = AllowedClientApiBaseUrl;
+        return true;
     }
 }

@@ -28,7 +28,7 @@ public sealed class StudentConfigFileService
 
     private static string ResolveApiBaseUrl(string apiBaseUrl)
     {
-        return DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
+        return DataConnectionSettings.NormalizeClientApiBaseUrl(apiBaseUrl);
     }
 
     private sealed class StudentConfigExport

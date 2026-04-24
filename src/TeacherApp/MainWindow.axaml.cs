@@ -666,7 +666,12 @@ public partial class MainWindow : Window
                 $"Soubor pro žáka {selectedStudent.DisplayName} byl uložen. Obsahuje server a neobsahuje PIN.";
             DiagnosticLogService.Log("TeacherApp", $"Student config file generated for class '{classId}', student '{selectedStudent.StudentId}'.");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (ArgumentException ex)
+        {
+            DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed for student '{selectedStudent.StudentId}'", ex);
+            StudentConfigStatusTextBlock.Text = ex.Message;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed for student '{selectedStudent.StudentId}'", ex);
             StudentConfigStatusTextBlock.Text = "Soubor pro žáka se nepodařilo bezpečně uložit.";
@@ -702,18 +707,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (IsOnlineApiMode)
-        {
-            ResetPinStatusTextBlock.Text = string.IsNullOrWhiteSpace(student.PendingTemporaryPin)
-                ? "Dočasný PIN čeká na první přihlášení, ale server ho nevrátil pro zobrazení."
-                : $"Dočasný PIN čeká na první přihlášení: {student.PendingTemporaryPin}";
-            return;
-        }
-
-        var temporaryPin = _studentPinResetter.GetPendingTemporaryPin(_currentDataFolderPath, student.StudentId);
-        ResetPinStatusTextBlock.Text = string.IsNullOrWhiteSpace(temporaryPin)
-            ? "Dočasný PIN čeká na první přihlášení, ale nejde ho bezpečně zobrazit."
-            : $"Dočasný PIN čeká na první přihlášení: {temporaryPin}";
+        ResetPinStatusTextBlock.Text =
+            "Dočasný PIN čeká na první přihlášení, ale z bezpečnostních důvodů ho už nelze znovu zobrazit. Pokud je potřeba, resetujte PIN znovu.";
     }
 
     private void LoadStudentResults(StudentListItem student)

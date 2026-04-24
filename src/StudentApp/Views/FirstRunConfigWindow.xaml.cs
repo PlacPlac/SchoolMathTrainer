@@ -32,7 +32,9 @@ public partial class FirstRunConfigWindow : Window
         if (!result.IsValid || string.IsNullOrWhiteSpace(result.StudentId))
         {
             DiagnosticLogService.Log("StudentApp", $"First run config import failed. Message: {result.Message}");
-            StatusTextBlock.Text = "Soubor se nepodařilo načíst nebo neobsahuje žáka. Zkus to prosím znovu.";
+            StatusTextBlock.Text = string.IsNullOrWhiteSpace(result.Message)
+                ? "Soubor se nepodařilo načíst nebo neobsahuje žáka. Zkus to prosím znovu."
+                : result.Message;
             return;
         }
 

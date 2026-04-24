@@ -466,9 +466,7 @@ public sealed class TeacherOnlineApiDataSource
             MustChangePinStatus = student.MustChangePin ? "Ano" : "Ne",
             TemporaryPinPending = student.TemporaryPinPending,
             TemporaryPinPendingStatus = student.TemporaryPinPending ? "Ano" : "Ne",
-            PendingTemporaryPin = student.MustChangePin && student.TemporaryPinPending
-                ? student.PendingTemporaryPin
-                : string.Empty,
+            PendingTemporaryPin = string.Empty,
             CreatedAtText = "OnlineApi",
             PinResetAtText = "OnlineApi"
         };

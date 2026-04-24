@@ -47,6 +47,22 @@ public sealed class SharedDataFolderSettingsService
             var settings = JsonSerializer.Deserialize<SharedDataFolderSettings>(
                 File.ReadAllText(SettingsFilePath, Encoding.UTF8),
                 SerializerOptions);
+            var normalizedApiBaseUrl = string.Empty;
+            if (!string.IsNullOrWhiteSpace(settings?.ApiBaseUrl) &&
+                !DataConnectionSettings.TryNormalizeClientApiBaseUrl(
+                    settings.ApiBaseUrl,
+                    out normalizedApiBaseUrl,
+                    out var apiBaseUrlError))
+            {
+                return CreateInvalidResult(
+                    apiBaseUrlError,
+                    settings?.DataFolderPath ?? string.Empty,
+                    settings?.ClassId,
+                    settings?.ClassFolderName,
+                    settings?.StudentId,
+                    settings?.ApiBaseUrl);
+            }
+
             var configuredPath = settings?.DataFolderPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(configuredPath))
             {
@@ -79,7 +95,7 @@ public sealed class SharedDataFolderSettingsService
                 ClassId = settings?.ClassId ?? string.Empty,
                 ClassFolderName = settings?.ClassFolderName ?? Path.GetFileName(fullPath),
                 StudentId = settings?.StudentId ?? string.Empty,
-                ApiBaseUrl = DataConnectionSettings.NormalizeApiBaseUrl(settings?.ApiBaseUrl),
+                ApiBaseUrl = normalizedApiBaseUrl,
                 IsStudentConfigurationImported = settings?.IsStudentConfigurationImported == true,
                 Message = $"Používá se společná datová složka: {fullPath}"
             };
@@ -134,6 +150,14 @@ public sealed class SharedDataFolderSettingsService
             if (settings.Version != 1 || string.IsNullOrWhiteSpace(studentId))
             {
                 return CreateInvalidResult("Konfigurační soubor není platný.", string.Empty);
+            }
+
+            if (!DataConnectionSettings.TryNormalizeClientApiBaseUrl(
+                    settings.ApiBaseUrl,
+                    out _,
+                    out var apiBaseUrlError))
+            {
+                return CreateInvalidResult(apiBaseUrlError, string.Empty, settings.ClassId, settings.ClassFolderName, studentId, settings.ApiBaseUrl);
             }
 
             if (!string.IsNullOrWhiteSpace(settings.DataFolderPath))
@@ -231,7 +255,7 @@ public sealed class SharedDataFolderSettingsService
 
     private static string ResolveApiBaseUrl(string apiBaseUrl)
     {
-        return DataConnectionSettings.NormalizeApiBaseUrl(apiBaseUrl);
+        return DataConnectionSettings.NormalizeClientApiBaseUrl(apiBaseUrl);
     }
 
     private static SharedDataFolderSettingsResult CreateInvalidResult(

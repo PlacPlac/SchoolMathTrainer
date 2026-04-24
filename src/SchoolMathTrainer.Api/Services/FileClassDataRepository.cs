@@ -215,15 +215,14 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         var persistedAccount = progressService.GetStudentAccounts()
             .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
         _logger.LogInformation(
-            "Student PIN reset persisted. Class {ClassId}, student {StudentId}, loginCode={LoginCode}, mustChangePin={MustChangePin}, temporaryPinPending={TemporaryPinPending}, pinSalt={PinSalt}, pinHash={PinHash}, hasEncryptedTemporaryPin={HasEncryptedTemporaryPin}.",
+            "Student PIN reset persisted. Class {ClassId}, student {StudentId}, loginCode={LoginCode}, mustChangePin={MustChangePin}, temporaryPinPending={TemporaryPinPending}, pinSalt={PinSalt}, pinHash={PinHash}.",
             classId,
             studentId,
             persistedAccount?.LoginCode ?? result.Account.LoginCode,
             persistedAccount?.MustChangePin ?? result.Account.MustChangePin,
             persistedAccount?.TemporaryPinPending ?? result.Account.TemporaryPinPending,
             DescribeStoredSecret(persistedAccount?.PinSalt ?? result.Account.PinSalt),
-            DescribeStoredSecret(persistedAccount?.PinHash ?? result.Account.PinHash),
-            !string.IsNullOrWhiteSpace(persistedAccount?.PendingTemporaryPinEncrypted ?? result.Account.PendingTemporaryPinEncrypted));
+            DescribeStoredSecret(persistedAccount?.PinHash ?? result.Account.PinHash));
         _logger.LogInformation("Student PIN reset completed for class {ClassId}, student {StudentId}. Temporary PIN value was not logged.", classId, studentId);
         return new TeacherStudentChangeResponse(
             true,
@@ -523,9 +522,7 @@ internal sealed class FileClassDataRepository : IClassDataRepository
             account.MustChangePin,
             account.TemporaryPinPending,
             ToSummaryResponse(summary),
-            account.TemporaryPinPending
-                ? progressService.GetPendingTemporaryPin(account.StudentId) ?? string.Empty
-                : string.Empty);
+            string.Empty);
 
     private static StudentSummaryResponse? ToSummaryResponse(StudentSummary? summary) =>
         summary is null
