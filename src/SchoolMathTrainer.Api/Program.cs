@@ -52,7 +52,7 @@ IResult LoginTeacher(
         if (lockoutStore.IsLocked(username, remoteAddress, out var retryAfter))
         {
             audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login is temporarily locked.");
-            logger.LogWarning("Teacher login rejected because lockout is active for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            logger.LogWarning("Teacher login rejected because lockout is active from {RemoteAddress}.", remoteAddress);
             return CreateTeacherLoginLockedResult(httpContext, retryAfter);
         }
 
@@ -63,18 +63,18 @@ IResult LoginTeacher(
             if (failure.LockoutStarted && failure.LockedUntilUtc.HasValue)
             {
                 audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login was temporarily locked after repeated failed attempts.");
-                logger.LogWarning("Teacher login lockout started for username {Username} from {RemoteAddress}.", username, remoteAddress);
+                logger.LogWarning("Teacher login lockout started from {RemoteAddress}.", remoteAddress);
                 return CreateTeacherLoginLockedResult(httpContext, failure.LockedUntilUtc.Value - DateTime.UtcNow);
             }
 
             audit.Write("teacher_login_failed", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Invalid teacher credentials.");
-            logger.LogWarning("Teacher login failed for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            logger.LogWarning("Teacher login failed from {RemoteAddress}.", remoteAddress);
             return Results.Unauthorized();
         }
 
         lockoutStore.RegisterSuccess(account.Username, remoteAddress);
         audit.Write("teacher_login_succeeded", account.Username, remoteAddress, httpContext.Request.Path, StatusCodes.Status200OK, "Teacher credentials accepted.");
-        logger.LogInformation("Teacher login succeeded for username {Username}.", account.Username);
+        logger.LogInformation("Teacher login succeeded.");
         return Results.Ok(tokenService.IssueToken(account));
     }
     catch (ArgumentException ex)
@@ -83,7 +83,7 @@ IResult LoginTeacher(
         if (failure.LockoutStarted && failure.LockedUntilUtc.HasValue)
         {
             audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login was temporarily locked after repeated failed attempts.");
-            logger.LogWarning("Teacher login lockout started after invalid request for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            logger.LogWarning("Teacher login lockout started after invalid request from {RemoteAddress}.", remoteAddress);
             return CreateTeacherLoginLockedResult(httpContext, failure.LockedUntilUtc.Value - DateTime.UtcNow);
         }
 
@@ -106,7 +106,7 @@ app.MapPost("/api/teachers/logout", (HttpContext httpContext, TeacherTokenServic
     var remoteAddress = GetRemoteAddress(httpContext);
     if (!TryReadBearerToken(httpContext.Request, out var token))
     {
-        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Logout request did not include a bearer token.");
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Logout request did not include required authorization.");
         return Results.Unauthorized();
     }
 
@@ -280,12 +280,12 @@ app.MapPost("/api/students/{classId}/{studentId}/reset-pin", (string classId, st
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid reset PIN request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid student credential reset request for class {ClassId}, student {StudentId}.", classId, studentId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
     {
-        logger.LogError(ex, "Student PIN could not be reset for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogError(ex, "Student credential reset could not be completed for class {ClassId}, student {StudentId}.", classId, studentId);
         return Results.Problem("Student PIN could not be reset.");
     }
 });
@@ -390,7 +390,7 @@ static bool TryAuthorizeTeacher(
     var remoteAddress = GetRemoteAddress(httpContext);
     if (!TryReadBearerToken(request, out var token))
     {
-        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, "Bearer token is missing.");
+        audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, "Authorization is missing.");
         unauthorizedResult = Results.Unauthorized();
         return false;
     }

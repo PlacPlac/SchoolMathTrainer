@@ -40,7 +40,7 @@ public sealed class StudentOnlineLoginService
             var safeNewPin = newPin ?? string.Empty;
             DiagnosticLogService.Log(
                 LogName,
-                $"Online login request: baseUrl='{_httpClient.BaseAddress}', scheme='{_httpClient.BaseAddress?.Scheme ?? "unknown"}', classId='{_classId}', configuredStudentId='{_configuredStudentId}', loginCode='{safeLoginCode.Trim()}', pin={DescribeSecret(safePin)}, newPin={DescribeSecret(safeNewPin)}, endpoint='{endpoint}'.");
+                $"Online login request started for class '{_classId}', configured student '{_configuredStudentId}', endpoint '{endpoint}'.");
             var request = new StudentLoginRequest(safeLoginCode, safePin, safeNewPin, _configuredStudentId);
             var response = await _httpClient.PostAsJsonAsync(endpoint, request);
             if (response.StatusCode is System.Net.HttpStatusCode.Locked or System.Net.HttpStatusCode.TooManyRequests)
@@ -56,7 +56,7 @@ public sealed class StudentOnlineLoginService
             }
 
             var result = await response.Content.ReadFromJsonAsync<StudentLoginResult>();
-            DiagnosticLogService.Log(LogName, $"Online login response received for class '{_classId}', success={result?.Success.ToString() ?? "null"}, requiresPinChange={result?.RequiresPinChange.ToString() ?? "null"}.");
+            DiagnosticLogService.Log(LogName, $"Online login response received for class '{_classId}', success={result?.Success.ToString() ?? "null"}, requiresCredentialChange={result?.RequiresPinChange.ToString() ?? "null"}.");
             if (result is null)
             {
                 return StudentLoginResult.Failed("Server nevrátil platnou odpověď pro přihlášení.");
@@ -65,7 +65,7 @@ public sealed class StudentOnlineLoginService
             if (result.Success &&
                 !string.Equals(result.StudentId, _configuredStudentId, StringComparison.OrdinalIgnoreCase))
             {
-                DiagnosticLogService.Log(LogName, $"Online login rejected because server returned student '{result.StudentId}' instead of configured student '{_configuredStudentId}'.");
+                DiagnosticLogService.Log(LogName, $"Online login rejected because server returned a different student for class '{_classId}'.");
                 return StudentLoginResult.Failed("Přihlášení neodpovídá souboru od paní učitelky. Načti správný soubor pro tohoto žáka.");
             }
 
@@ -102,14 +102,4 @@ public sealed class StudentOnlineLoginService
         }
     }
 
-    private static string DescribeSecret(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return "missing";
-        }
-
-        var last = value[^1];
-        return $"present(len={value.Length},last=*{last})";
-    }
 }

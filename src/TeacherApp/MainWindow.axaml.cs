@@ -285,7 +285,7 @@ public partial class MainWindow : Window
             LoadStudentsFromOnlineApi(onlineCreateResult.Account.StudentId);
             CreateStudentStatusTextBlock.Text =
                 $"Účet byl vytvořen pro žáka {onlineCreateResult.Account.DisplayName}. LoginCode: {onlineCreateResult.Account.LoginCode}. Dočasný PIN: {onlineCreateResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
-            DiagnosticLogService.Log("TeacherApp", $"Online create student completed for student '{onlineCreateResult.Account.StudentId}'. Temporary PIN value was not logged.");
+            DiagnosticLogService.Log("TeacherApp", $"Online create student completed for student '{onlineCreateResult.Account.StudentId}'. Temporary credential value was not logged.");
             return;
         }
 
@@ -314,7 +314,7 @@ public partial class MainWindow : Window
         LoadStudentsFromFolder(_currentDataFolderPath, createResult.Account.StudentId);
         CreateStudentStatusTextBlock.Text =
             $"Účet byl vytvořen pro žáka {createResult.Account.DisplayName}. LoginCode: {createResult.Account.LoginCode}. Dočasný PIN: {createResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
-        DiagnosticLogService.Log("TeacherApp", $"Create student completed for student '{createResult.Account.StudentId}'. Temporary PIN value was not logged.");
+        DiagnosticLogService.Log("TeacherApp", $"Create student completed for student '{createResult.Account.StudentId}'. Temporary credential value was not logged.");
     }
 
     private void LoadStudentsFromFolder(string folderPath, string studentIdToSelect)
@@ -509,7 +509,7 @@ public partial class MainWindow : Window
             ResetPinStatusTextBlock.Text = onlineResetResult.Message;
             if (!onlineResetResult.Success || onlineResetResult.Account is null)
             {
-                DiagnosticLogService.Log("TeacherApp", $"Online reset PIN failed for student '{_selectedStudentId}'. Message: {onlineResetResult.Message}");
+                DiagnosticLogService.Log("TeacherApp", $"Online credential reset failed for student '{_selectedStudentId}'. Message: {onlineResetResult.Message}");
                 HandleOnlineAuthorizationFailureIfNeeded();
                 return;
             }
@@ -517,7 +517,7 @@ public partial class MainWindow : Window
             LoadStudentsFromOnlineApi(onlineResetResult.Account.StudentId);
             ResetPinStatusTextBlock.Text =
                 $"PIN byl resetován pro žáka {onlineResetResult.Account.DisplayName} ({onlineResetResult.Account.LoginCode}). Nový dočasný PIN: {onlineResetResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
-            DiagnosticLogService.Log("TeacherApp", $"Online reset PIN completed for student '{onlineResetResult.Account.StudentId}'. Temporary PIN value was not logged.");
+            DiagnosticLogService.Log("TeacherApp", $"Online credential reset completed for student '{onlineResetResult.Account.StudentId}'. Temporary credential value was not logged.");
             return;
         }
 
@@ -544,14 +544,14 @@ public partial class MainWindow : Window
         ResetPinStatusTextBlock.Text = resetResult.Message;
         if (!resetResult.Success || resetResult.Account is null)
         {
-            DiagnosticLogService.Log("TeacherApp", $"Reset PIN failed for student '{_selectedStudentId}'. Message: {resetResult.Message}");
+            DiagnosticLogService.Log("TeacherApp", $"Credential reset failed for student '{_selectedStudentId}'. Message: {resetResult.Message}");
             return;
         }
 
         LoadStudentsFromFolder(_currentDataFolderPath, resetResult.Account.StudentId);
         ResetPinStatusTextBlock.Text =
             $"PIN byl resetován pro žáka {resetResult.Account.DisplayName} ({resetResult.Account.LoginCode}). Nový dočasný PIN: {resetResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
-        DiagnosticLogService.Log("TeacherApp", $"Reset PIN completed for student '{resetResult.Account.StudentId}'. Temporary PIN value was not logged.");
+        DiagnosticLogService.Log("TeacherApp", $"Credential reset completed for student '{resetResult.Account.StudentId}'. Temporary credential value was not logged.");
     }
 
     private void OnDeleteStudentClick(object? sender, RoutedEventArgs e)

@@ -83,7 +83,7 @@ public sealed class TeacherOnlineApiDataSource
             _teacherToken = login.Token;
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _teacherToken);
             var normalizedUsername = username.Trim();
-            DiagnosticLogService.Log(LogName, $"Teacher login completed for username '{normalizedUsername}'. Token value was not logged.");
+            DiagnosticLogService.Log(LogName, "Teacher login completed successfully. Session data remains in memory only.");
             return new TeacherLoginClientResult(
                 true,
                 "Přihlášení učitele proběhlo úspěšně.",
