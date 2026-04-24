@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TeacherApp.TemporaryPinWindow"
+        Title="Dočasný PIN"
+        Width="560"
+        Height="420"
+        MinWidth="520"
+        MinHeight="380"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*"
+        Margin="24"
+        RowSpacing="14">
+    <TextBlock Grid.Row="0"
+               Text="Dočasný PIN žáka"
+               FontSize="24"
+               FontWeight="SemiBold" />
+
+    <TextBlock Grid.Row="1"
+               Text="Tento dočasný PIN se zobrazí pouze jednou. Po zavření už ho nebude možné znovu zobrazit. Pokud PIN ztratíte, použijte Resetovat PIN."
+               TextWrapping="Wrap" />
+
+    <StackPanel Grid.Row="2"
+                Spacing="6">
+      <TextBlock x:Name="StudentNameTextBlock"
+                 Text="Žák:"
+                 FontSize="16" />
+      <TextBlock x:Name="LoginCodeTextBlock"
+                 Text="LoginCode:"
+                 FontSize="16" />
+    </StackPanel>
+
+    <Border Grid.Row="3"
+            Background="#FFF6E6"
+            BorderBrush="#E0B35B"
+            BorderThickness="2"
+            CornerRadius="10"
+            Padding="18">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Dočasný PIN"
+                   FontSize="16"
+                   Foreground="#6B7280"
+                   HorizontalAlignment="Center" />
+        <TextBlock x:Name="TemporaryPinTextBlock"
+                   FontSize="36"
+                   FontWeight="Bold"
+                   Foreground="#111827"
+                   HorizontalAlignment="Center"
+                   TextAlignment="Center" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock x:Name="StatusTextBlock"
+               Grid.Row="4"
+               Text=""
+               TextWrapping="Wrap" />
+
+    <StackPanel Grid.Row="5"
+                Orientation="Horizontal"
+                HorizontalAlignment="Right"
+                Spacing="10">
+      <Button x:Name="CopyPinButton"
+              Content="Zkopírovat PIN"
+              Click="OnCopyPinClick" />
+      <Button Content="Zavřít"
+              Click="OnCloseClick" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -261,7 +261,7 @@ public partial class MainWindow : Window
         ValidationStatusTextBlock.Text = $"{result.Message} Režim je pouze pro čtení.";
     }
 
-    private void OnCreateStudentClick(object? sender, RoutedEventArgs e)
+    private async void OnCreateStudentClick(object? sender, RoutedEventArgs e)
     {
         CreateStudentStatusBorder.IsVisible = true;
 
@@ -284,7 +284,11 @@ public partial class MainWindow : Window
             NewStudentNameTextBox.Text = string.Empty;
             LoadStudentsFromOnlineApi(onlineCreateResult.Account.StudentId);
             CreateStudentStatusTextBlock.Text =
-                $"Účet byl vytvořen pro žáka {onlineCreateResult.Account.DisplayName}. LoginCode: {onlineCreateResult.Account.LoginCode}. Dočasný PIN: {onlineCreateResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
+                $"Účet byl vytvořen pro žáka {onlineCreateResult.Account.DisplayName}. Dočasný PIN byl zobrazen v samostatném okně.";
+            await ShowTemporaryPinWindowAsync(
+                onlineCreateResult.Account.DisplayName,
+                onlineCreateResult.Account.LoginCode,
+                onlineCreateResult.TemporaryPin);
             DiagnosticLogService.Log("TeacherApp", $"Online create student completed for student '{onlineCreateResult.Account.StudentId}'. Temporary credential value was not logged.");
             return;
         }
@@ -313,7 +317,11 @@ public partial class MainWindow : Window
         NewStudentNameTextBox.Text = string.Empty;
         LoadStudentsFromFolder(_currentDataFolderPath, createResult.Account.StudentId);
         CreateStudentStatusTextBlock.Text =
-            $"Účet byl vytvořen pro žáka {createResult.Account.DisplayName}. LoginCode: {createResult.Account.LoginCode}. Dočasný PIN: {createResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
+            $"Účet byl vytvořen pro žáka {createResult.Account.DisplayName}. Dočasný PIN byl zobrazen v samostatném okně.";
+        await ShowTemporaryPinWindowAsync(
+            createResult.Account.DisplayName,
+            createResult.Account.LoginCode,
+            createResult.TemporaryPin);
         DiagnosticLogService.Log("TeacherApp", $"Create student completed for student '{createResult.Account.StudentId}'. Temporary credential value was not logged.");
     }
 
@@ -487,7 +495,7 @@ public partial class MainWindow : Window
         RefreshTeacherUiState();
     }
 
-    private void OnResetPinClick(object? sender, RoutedEventArgs e)
+    private async void OnResetPinClick(object? sender, RoutedEventArgs e)
     {
         StudentActionStatusBorder.IsVisible = true;
 
@@ -516,7 +524,11 @@ public partial class MainWindow : Window
 
             LoadStudentsFromOnlineApi(onlineResetResult.Account.StudentId);
             ResetPinStatusTextBlock.Text =
-                $"PIN byl resetován pro žáka {onlineResetResult.Account.DisplayName} ({onlineResetResult.Account.LoginCode}). Nový dočasný PIN: {onlineResetResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
+                $"PIN byl resetován pro žáka {onlineResetResult.Account.DisplayName}. Dočasný PIN byl zobrazen v samostatném okně.";
+            await ShowTemporaryPinWindowAsync(
+                onlineResetResult.Account.DisplayName,
+                onlineResetResult.Account.LoginCode,
+                onlineResetResult.TemporaryPin);
             DiagnosticLogService.Log("TeacherApp", $"Online credential reset completed for student '{onlineResetResult.Account.StudentId}'. Temporary credential value was not logged.");
             return;
         }
@@ -550,8 +562,23 @@ public partial class MainWindow : Window
 
         LoadStudentsFromFolder(_currentDataFolderPath, resetResult.Account.StudentId);
         ResetPinStatusTextBlock.Text =
-            $"PIN byl resetován pro žáka {resetResult.Account.DisplayName} ({resetResult.Account.LoginCode}). Nový dočasný PIN: {resetResult.TemporaryPin}. PIN je určen pro první přihlášení a žák ho potom změní.";
+            $"PIN byl resetován pro žáka {resetResult.Account.DisplayName}. Dočasný PIN byl zobrazen v samostatném okně.";
+        await ShowTemporaryPinWindowAsync(
+            resetResult.Account.DisplayName,
+            resetResult.Account.LoginCode,
+            resetResult.TemporaryPin);
         DiagnosticLogService.Log("TeacherApp", $"Credential reset completed for student '{resetResult.Account.StudentId}'. Temporary credential value was not logged.");
+    }
+
+    private async Task ShowTemporaryPinWindowAsync(string studentName, string loginCode, string temporaryPin)
+    {
+        if (string.IsNullOrWhiteSpace(temporaryPin))
+        {
+            return;
+        }
+
+        var dialog = new TemporaryPinWindow(studentName, loginCode, temporaryPin);
+        await dialog.ShowDialog(this);
     }
 
     private void OnDeleteStudentClick(object? sender, RoutedEventArgs e)
