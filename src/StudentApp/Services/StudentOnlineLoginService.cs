@@ -43,6 +43,12 @@ public sealed class StudentOnlineLoginService
                 $"Online login request: baseUrl='{_httpClient.BaseAddress}', scheme='{_httpClient.BaseAddress?.Scheme ?? "unknown"}', classId='{_classId}', configuredStudentId='{_configuredStudentId}', loginCode='{safeLoginCode.Trim()}', pin={DescribeSecret(safePin)}, newPin={DescribeSecret(safeNewPin)}, endpoint='{endpoint}'.");
             var request = new StudentLoginRequest(safeLoginCode, safePin, safeNewPin, _configuredStudentId);
             var response = await _httpClient.PostAsJsonAsync(endpoint, request);
+            if (response.StatusCode is System.Net.HttpStatusCode.Locked or System.Net.HttpStatusCode.TooManyRequests)
+            {
+                DiagnosticLogService.Log(LogName, $"Online login temporarily locked with HTTP {(int)response.StatusCode} for class '{_classId}'.");
+                return StudentLoginResult.Failed(await ReadLockoutMessageAsync(response));
+            }
+
             if (!response.IsSuccessStatusCode)
             {
                 DiagnosticLogService.Log(LogName, $"Online login failed with HTTP {(int)response.StatusCode} for class '{_classId}'.");
@@ -79,6 +85,21 @@ public sealed class StudentOnlineLoginService
         return Uri.TryCreate(value, UriKind.Absolute, out var uri)
             ? uri
             : new Uri($"{DataConnectionSettings.DefaultApiBaseUrl}/");
+    }
+
+    private static async Task<string> ReadLockoutMessageAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            var message = await response.Content.ReadFromJsonAsync<ApiMessageResponse>();
+            return string.IsNullOrWhiteSpace(message?.Message)
+                ? "Příliš mnoho neúspěšných pokusů. Zkuste to prosím později."
+                : message.Message;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or HttpRequestException)
+        {
+            return "Příliš mnoho neúspěšných pokusů. Zkuste to prosím později.";
+        }
     }
 
     private static string DescribeSecret(string? value)

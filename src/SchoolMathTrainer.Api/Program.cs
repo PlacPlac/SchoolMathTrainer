@@ -15,6 +15,11 @@ builder.Services.AddSingleton(serviceProvider =>
     var dataRoot = ResolveDataRoot(configuration["DataConnection:DataRoot"], environment.ContentRootPath);
     return new TeacherAccountStore(dataRoot, serviceProvider.GetRequiredService<TeacherPasswordHasher>());
 });
+builder.Services.AddSingleton(serviceProvider =>
+{
+    var teacherStore = serviceProvider.GetRequiredService<TeacherAccountStore>();
+    return new StudentLoginLockoutStore(teacherStore.SecurityDirectory);
+});
 builder.Services.AddSingleton<TeacherLoginLockoutStore>();
 builder.Services.AddSingleton<TeacherTokenService>();
 builder.Services.AddSingleton<TeacherAuthAuditLogger>();
@@ -311,11 +316,35 @@ app.MapDelete("/api/students/{classId}/{studentId}", (string classId, string stu
     }
 });
 
-app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest request, IClassDataRepository repository) =>
+app.MapPost("/api/classes/{classId}/login", (string classId, StudentLoginRequest request, HttpContext httpContext, IClassDataRepository repository, StudentLoginLockoutStore studentLoginLockouts) =>
 {
+    var safeRequest = request ?? new StudentLoginRequest(string.Empty, string.Empty, string.Empty);
+    var remoteAddress = GetRemoteAddress(httpContext);
+    var loginCode = safeRequest.LoginCode ?? string.Empty;
+
     try
     {
-        return Results.Ok(repository.LoginStudent(classId, request));
+        if (studentLoginLockouts.IsLocked(classId, loginCode, remoteAddress, out var retryAfter))
+        {
+            logger.LogWarning("Student login rejected because lockout is active for class {ClassId} from {RemoteAddress}.", classId, remoteAddress);
+            return CreateStudentLoginLockedResult(httpContext, retryAfter);
+        }
+
+        var result = repository.LoginStudent(classId, safeRequest);
+        if (result.Success || result.RequiresPinChange)
+        {
+            studentLoginLockouts.RegisterSuccess(classId, loginCode, remoteAddress);
+            return Results.Ok(result);
+        }
+
+        var failure = studentLoginLockouts.RegisterFailure(classId, loginCode, remoteAddress);
+        if (failure.LockoutStarted && failure.LockedUntilUtc.HasValue)
+        {
+            logger.LogWarning("Student login lockout started for class {ClassId} from {RemoteAddress}.", classId, remoteAddress);
+            return CreateStudentLoginLockedResult(httpContext, failure.LockedUntilUtc.Value - DateTime.UtcNow);
+        }
+
+        return Results.Ok(result);
     }
     catch (ArgumentException ex)
     {
@@ -383,6 +412,15 @@ static IResult CreateTeacherLoginLockedResult(HttpContext httpContext, TimeSpan 
     httpContext.Response.Headers.RetryAfter = safeRetryAfter.ToString();
     return Results.Json(
         new ApiMessageResponse("Příliš mnoho pokusů o přihlášení. Zkuste to prosím později."),
+        statusCode: StatusCodes.Status423Locked);
+}
+
+static IResult CreateStudentLoginLockedResult(HttpContext httpContext, TimeSpan retryAfter)
+{
+    var safeRetryAfter = Math.Max(1, (int)Math.Ceiling(Math.Max(0, retryAfter.TotalSeconds)));
+    httpContext.Response.Headers.RetryAfter = safeRetryAfter.ToString();
+    return Results.Json(
+        new ApiMessageResponse("Příliš mnoho neúspěšných pokusů. Zkuste to prosím později."),
         statusCode: StatusCodes.Status423Locked);
 }
 
