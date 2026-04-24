@@ -15,6 +15,7 @@ builder.Services.AddSingleton(serviceProvider =>
     var dataRoot = ResolveDataRoot(configuration["DataConnection:DataRoot"], environment.ContentRootPath);
     return new TeacherAccountStore(dataRoot, serviceProvider.GetRequiredService<TeacherPasswordHasher>());
 });
+builder.Services.AddSingleton<TeacherLoginLockoutStore>();
 builder.Services.AddSingleton<TeacherTokenService>();
 builder.Services.AddSingleton<TeacherAuthAuditLogger>();
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -33,6 +34,7 @@ IResult LoginTeacher(
     TeacherLoginRequest request,
     HttpContext httpContext,
     TeacherAccountStore teacherStore,
+    TeacherLoginLockoutStore lockoutStore,
     TeacherTokenService tokenService,
     TeacherAuthAuditLogger audit)
 {
@@ -42,20 +44,44 @@ IResult LoginTeacher(
 
     try
     {
+        if (lockoutStore.IsLocked(username, remoteAddress, out var retryAfter))
+        {
+            audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login is temporarily locked.");
+            logger.LogWarning("Teacher login rejected because lockout is active for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            return CreateTeacherLoginLockedResult(httpContext, retryAfter);
+        }
+
         var account = teacherStore.VerifyCredentials(username, password);
         if (account is null)
         {
+            var failure = lockoutStore.RegisterFailure(username, remoteAddress);
+            if (failure.LockoutStarted && failure.LockedUntilUtc.HasValue)
+            {
+                audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login was temporarily locked after repeated failed attempts.");
+                logger.LogWarning("Teacher login lockout started for username {Username} from {RemoteAddress}.", username, remoteAddress);
+                return CreateTeacherLoginLockedResult(httpContext, failure.LockedUntilUtc.Value - DateTime.UtcNow);
+            }
+
             audit.Write("teacher_login_failed", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Invalid teacher credentials.");
             logger.LogWarning("Teacher login failed for username {Username} from {RemoteAddress}.", username, remoteAddress);
             return Results.Unauthorized();
         }
 
+        lockoutStore.RegisterSuccess(account.Username, remoteAddress);
         audit.Write("teacher_login_succeeded", account.Username, remoteAddress, httpContext.Request.Path, StatusCodes.Status200OK, "Teacher credentials accepted.");
         logger.LogInformation("Teacher login succeeded for username {Username}.", account.Username);
         return Results.Ok(tokenService.IssueToken(account));
     }
     catch (ArgumentException ex)
     {
+        var failure = lockoutStore.RegisterFailure(username, remoteAddress);
+        if (failure.LockoutStarted && failure.LockedUntilUtc.HasValue)
+        {
+            audit.Write("teacher_login_locked", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status423Locked, "Teacher login was temporarily locked after repeated failed attempts.");
+            logger.LogWarning("Teacher login lockout started after invalid request for username {Username} from {RemoteAddress}.", username, remoteAddress);
+            return CreateTeacherLoginLockedResult(httpContext, failure.LockedUntilUtc.Value - DateTime.UtcNow);
+        }
+
         audit.Write("teacher_login_failed", username, remoteAddress, httpContext.Request.Path, StatusCodes.Status401Unauthorized, "Invalid teacher login request.");
         logger.LogWarning(ex, "Teacher login rejected because request was invalid.");
         return Results.Unauthorized();
@@ -349,6 +375,15 @@ static bool TryAuthorizeTeacher(
     }
 
     return true;
+}
+
+static IResult CreateTeacherLoginLockedResult(HttpContext httpContext, TimeSpan retryAfter)
+{
+    var safeRetryAfter = Math.Max(1, (int)Math.Ceiling(Math.Max(0, retryAfter.TotalSeconds)));
+    httpContext.Response.Headers.RetryAfter = safeRetryAfter.ToString();
+    return Results.Json(
+        new ApiMessageResponse("Příliš mnoho pokusů o přihlášení. Zkuste to prosím později."),
+        statusCode: StatusCodes.Status423Locked);
 }
 
 static string GetRemoteAddress(HttpContext httpContext) =>
