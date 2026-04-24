@@ -1,392 +1,103 @@
-﻿# AGENTS.md
+# AGENTS.md
 
 ## Rozsah
 
-Tyto instrukce plati pro cely repozitar od teto slozky dolu.
+Tyto instrukce platí pro celý repozitář od této složky dolů.
 
-## Hlavni cil
+## Aktuální realita projektu
 
-Vytvorit a udrzovat kompletni Windows desktop reseni v C# WPF pro skolni procvicovani scitani a odecitani do 20 pro male deti.
+Repozitář dnes obsahuje:
+- `SchoolMathTrainer.sln`
+- `src/TeacherApp`
+- `src/StudentApp`
+- `src/SchoolMathTrainer.Api`
+- `src/SchoolMathTrainer.TeacherAdmin`
+- `src/SharedCore`
 
-Reseni musi byt plne funkcni, buildovatelne ve Visual Studiu a pripravene k pouziti.
+Aktuální hlavní fakta:
+- hlavní učitelské GUI je `TeacherApp`,
+- produkční server je `89.221.212.49`,
+- povolený klientský `apiBaseUrl` je `http://89.221.212.49`,
+- veřejný provoz jde přes nginx,
+- interní API runtime běží na `127.0.0.1:5078`,
+- onboarding žáka probíhá přes `.smtcfg`,
+- teacher autentizace používá Bearer token,
+- studentský upload výsledků používá student session token.
 
-## Hranice workspace
+## Dokumentační pravda
 
-Vytvarej a upravuj soubory pouze uvnitr:
+Při úpravách dokumentace drž v souladu hlavně tyto soubory:
+- `README.md`
+- `docs/ProjectDocumentation.md`
+- `Logs/README.txt`
+- `sample-data/README.txt`
+- `sample-data/Config/README.txt`
+- `sample-data/Logs/README.txt`
 
-`C:\Scripts\Codex\apps\src\Aplikace_skola_pocitani\SchoolMathTrainer`
+Pokud dokumentace tvrdí něco jiného než kód, oprav dokumentaci podle kódu a aktuálního nasazení.
 
-Nevytvarej ani neupravuj nic mimo tento workspace.
+## Build a spuštění
 
-Na konci kazde vetsi prace vypis:
-- ktere soubory byly vytvoreny
-- ktere soubory byly upraveny
-- potvrzeni, ze nic mimo workspace nebylo zmeneno
+Build celé solution:
 
-## Neprekrocitelna pravidla
+```powershell
+dotnet build .\SchoolMathTrainer.sln
+```
+
+Spuštění `TeacherApp`:
+
+```powershell
+dotnet run --project .\src\TeacherApp\TeacherApp.csproj
+```
+
+Spuštění `StudentApp`:
+
+```powershell
+dotnet run --project .\src\StudentApp\StudentApp.csproj
+```
+
+Spuštění API:
+
+```powershell
+dotnet run --project .\src\SchoolMathTrainer.Api\SchoolMathTrainer.Api.csproj
+```
+
+Teacher admin:
+
+```powershell
+dotnet run --project .\src\SchoolMathTrainer.TeacherAdmin\SchoolMathTrainer.TeacherAdmin.csproj -- list-teachers --data-root C:\path\to\data
+```
+
+## Bezpečnostní pravidla
 
 Nikdy:
-- nepouzivej zadny server
-- nepouzivej zadnou databazi
-- nepouzivej zadny cloud backend
-- nenechavej placeholdery
-- nenechavej TODO misto implementace
-- nenechavej pseudokod
-- nevynechavej povinne soubory kvuli delce odpovedi
-- nezpristupnuj ucitelsky nebo admin rezim ve StudentApp
-- nevytvarej vsechny soubory jen jako prazdne kostry bez realne logiky
+- nepoužívej starý server `89.221.220.226`,
+- neprezentuj `TeacherDashboard` jako aktuální učitelskou aplikaci,
+- nevystavuj API přímo na `0.0.0.0:5078`,
+- nepiš do dokumentace ani repozitáře hesla, tokeny, privátní klíče ani jiné tajné údaje,
+- nepřenášej `sample-data` ze starého serveru a nevydávej ji za produkční snapshot,
+- neoznačuj HTTPS za povinný klientský endpoint, dokud se nezmění aktuální povolený `apiBaseUrl`.
 
-Vzdy:
-- dodrzuj presne pozadovanou strukturu
-- vracej plny obsah souboru, pokud je o nej pozadano
-- pokud se vse nevejde do jedne odpovedi, pokracuj v navazujicich castech
-- zachovej buildovatelnost projektu
-- preferuj standardni .NET a WPF funkce pred zbytecnymi zavislostmi
-- u velkych ukolu postupuj po mensich krocich
-- nejdriv vytvor buildovatelny zaklad, potom dopln plnou funkcnost
+Vždy:
+- udržuj dokumentaci v souladu s kódem,
+- uváděj `TeacherApp` jako hlavní učitelskou aplikaci,
+- rozlišuj teacher token a student session token,
+- uváděj, že veřejný klientský vstup je přes nginx a interní API běží na `127.0.0.1:5078`.
 
-## Doporuceny postup pro velke ukoly
+## Onboarding a autentizace
 
-Pokud je ukol rozsahly, preferuj tento postup:
+Onboarding:
+- `TeacherApp` generuje `.smtcfg`,
+- `.smtcfg` obsahuje `version`, `classId`, `studentId`, `apiBaseUrl`,
+- `.smtcfg` neobsahuje PIN ani teacher token.
 
-### Beh 1
-- vytvor solution a projekty
-- vytvor strukturu slozek a povinne soubory
-- implementuj modely a sluzby
-- priprav App.xaml, okna, views a viewmodely
-- nastav appsettings.json
-- udelej funkcni minimum tak, aby slo reseni buildnout
-- priprav zaklad pro:
-  - Zacatecnik
-  - Pokrocily
-  - Muj vysledek
-  - Tridni vysledky
-  - TeacherDashboard
+Teacher autentizace:
+- `POST /api/teacher-auth/login`
+- alias `POST /api/teachers/login`
+- teacher endpointy vyžadují `Authorization: Bearer <token>`
+- logout je `POST /api/teachers/logout`
 
-### Beh 2
-- dopln plnou funkcnost Zacatecnik
-- dopln plnou funkcnost Pokrocily
-- dopln Muj vysledek
-- dopln Tridni vysledky
-- dopln TeacherDashboard
-- dopln exporty
-- dopln sample data
-- dopln README
-- zachovej buildovatelnost
-
-## Povinna architektura
-
-Reseni musi pouzit presne tyto nazvy:
-- `SchoolMathTrainer.sln`
-- projekt `StudentApp`
-- projekt `TeacherDashboard`
-- projekt `SharedCore`
-
-## Povinna struktura
-
-- `SchoolMathTrainer.sln`
-
-- `src/SharedCore/SharedCore.csproj`
-- `src/SharedCore/Models/AppConfiguration.cs`
-- `src/SharedCore/Models/StudentSummary.cs`
-- `src/SharedCore/Models/StudentSession.cs`
-- `src/SharedCore/Models/AnswerRecord.cs`
-- `src/SharedCore/Models/StudentProgressSnapshot.cs`
-- `src/SharedCore/Models/ClassOverviewItem.cs`
-- `src/SharedCore/Models/LearningMode.cs`
-- `src/SharedCore/Models/OperationType.cs`
-- `src/SharedCore/Services/ConfigurationService.cs`
-- `src/SharedCore/Services/FileSystemStorageService.cs`
-- `src/SharedCore/Services/StatisticsService.cs`
-- `src/SharedCore/Services/MathProblemGenerator.cs`
-- `src/SharedCore/Services/RetryFileAccessService.cs`
-- `src/SharedCore/Services/LoggingService.cs`
-- `src/SharedCore/Services/CsvExportService.cs`
-- `src/SharedCore/Services/StudentProgressService.cs`
-- `src/SharedCore/Helpers/RelayCommand.cs`
-- `src/SharedCore/Helpers/BaseViewModel.cs`
-
-- `src/StudentApp/StudentApp.csproj`
-- `src/StudentApp/App.xaml`
-- `src/StudentApp/App.xaml.cs`
-- `src/StudentApp/Views/StudentShellWindow.xaml`
-- `src/StudentApp/Views/StudentShellWindow.xaml.cs`
-- `src/StudentApp/Views/StudentLoginView.xaml`
-- `src/StudentApp/Views/StudentLoginView.xaml.cs`
-- `src/StudentApp/Views/BeginnerQuizView.xaml`
-- `src/StudentApp/Views/BeginnerQuizView.xaml.cs`
-- `src/StudentApp/Views/AdvancedDragDropView.xaml`
-- `src/StudentApp/Views/AdvancedDragDropView.xaml.cs`
-- `src/StudentApp/Views/MyResultsView.xaml`
-- `src/StudentApp/Views/MyResultsView.xaml.cs`
-- `src/StudentApp/Views/ClassResultsView.xaml`
-- `src/StudentApp/Views/ClassResultsView.xaml.cs`
-- `src/StudentApp/ViewModels/StudentShellViewModel.cs`
-- `src/StudentApp/ViewModels/StudentLoginViewModel.cs`
-- `src/StudentApp/ViewModels/BeginnerQuizViewModel.cs`
-- `src/StudentApp/ViewModels/AdvancedDragDropViewModel.cs`
-- `src/StudentApp/ViewModels/MyResultsViewModel.cs`
-- `src/StudentApp/ViewModels/ClassResultsViewModel.cs`
-- `src/StudentApp/Resources/Theme.xaml`
-- `src/StudentApp/appsettings.json`
-
-- `src/TeacherDashboard/TeacherDashboard.csproj`
-- `src/TeacherDashboard/App.xaml`
-- `src/TeacherDashboard/App.xaml.cs`
-- `src/TeacherDashboard/Views/TeacherDashboardWindow.xaml`
-- `src/TeacherDashboard/Views/TeacherDashboardWindow.xaml.cs`
-- `src/TeacherDashboard/Views/StudentDetailView.xaml`
-- `src/TeacherDashboard/Views/StudentDetailView.xaml.cs`
-- `src/TeacherDashboard/ViewModels/TeacherDashboardViewModel.cs`
-- `src/TeacherDashboard/ViewModels/StudentDetailViewModel.cs`
-- `src/TeacherDashboard/Resources/Theme.xaml`
-- `src/TeacherDashboard/appsettings.json`
-
-- `sample-data/README.txt`
-- `sample-data/Data/Students/`
-- `sample-data/Data/Sessions/`
-
-Pokud je potreba pridat dalsi soubory, pridej je, ale nemaz ani neprejmenovavej povinne soubory.
-
-## Technologie
-
-Pouzij:
-- C#
-- .NET WPF
-- reseni buildovatelne ve Visual Studiu
-
-Preferuj:
-- ciste MVVM nebo stejne prehledne oddeleni logiky
-- standardni WPF ovladaci prvky a postupy
-- udrzovatelny kod
-
-Vyhybej se zbytecnym externim knihovnam.
-
-## Funkcni pozadavky
-
-### StudentApp
-
-StudentApp je pouze pro zaky.
-
-Musi:
-- umoznit prihlaseni jmenem, prezdivkou nebo ID
-- neobsahovat admin funkce
-- neobsahovat vstup do ucitelskeho rezimu
-- nikdy neotevirat TeacherDashboard ze studentskeho UI
-
-StudentApp musi obsahovat:
-- prihlaseni zaka
-- rezim Zacatecnik
-- rezim Pokrocily
-- pohled Muj vysledek
-- pohled Tridni vysledky
-
-### Zacatecnik
-
-Kvizovy rezim:
-- pouze scitani a odecitani
-- rozsah vysledku jen 0 az 20
-- zadne zaporne vysledky
-- presne 4 moznosti odpovedi
-- presne 1 spravna odpoved
-- 3 spatne odpovedi musi byt verohodne a bez duplicit
-- odpoved kliknutim nebo dotykem
-- po vyhodnoceni automaticky dalsi priklad
-
-### Pokrocily
-
-Rezim drag and drop:
-- bez hotovych tlacitek odpovedi
-- zobrazi se jeden priklad
-- zobrazi se cisla 0 az 20 jako pretahovatelne prvky
-- zak pretahne spravne cislo do cilove oblasti
-- musi fungovat drag and drop mysi
-- UI musi byt jednoduche i pro dotyk
-- po vyhodnoceni automaticky dalsi priklad
-
-### Studentske UI
-
-Musi byt:
-- detske
-- barevne
-- citelne
-- jednoduche
-- s velkym pismem
-- s velkymi ovladacimi prvky
-- se zaoblenym vzhledem
-- ne firemni nebo technicke
-
-### Zpetna vazba
-
-- spravna odpoved: kratka pochvala
-- spatna odpoved: kratke povzbuzeni
-- potom automaticky pokracovat
-
-## Vysledkove mody
-
-V produktu jsou 3 vysledkove mody:
-- mod zak = `Muj vysledek`
-- mod trida = `Tridni vysledky`
-- mod ucitelka = `TeacherDashboard.exe`
-
-### Muj vysledek
-
-Zobraz pouze data aktualniho zaka:
-- spravne odpovedi
-- spatne odpovedi
-- celkem odpovedi
-- uspesnost v procentech
-- vyvoj v case
-- zlepseni oproti predchozim relacim
-- zvlast statistiku pro Zacatecnik
-- zvlast statistiku pro Pokrocily
-- jednoduchy progress bar nebo jednoduchy graf
-
-### Tridni vysledky
-
-Sdileny tridni prehled:
-- vsichni zaci
-- jmeno nebo ID
-- pocet vyresenych prikladu
-- uspesnost
-- trend zlepseni
-- razeni podle uspesnosti, aktivity a poctu odpovedi
-- bez admin funkci
-- toto neni ucitelsky dashboard
-
-### TeacherDashboard
-
-Samostatna aplikace pouze pro ucitelku.
-
-Musi:
-- nacist data vsech zaku
-- zobrazit prehlednou tabulku nebo seznam
-- zobrazit jmeno nebo ID
-- pocet odpovedi
-- pocet spravnych
-- pocet spatnych
-- uspesnost
-- pocet relaci
-- cas posledni aktivity
-- trend zlepseni
-- vysledky Zacatecnik
-- vysledky Pokrocily
-- vyhledavani podle jmena nebo ID
-- rucni refresh
-- automaticky refresh
-
-Detail zaka v TeacherDashboard:
-- souhrn statistik
-- relace
-- detail odpovedi
-- cas kazde odpovedi
-- uspesnost po relacich
-- posledni aktivita
-- trend zlepseni v case
-- srovnani Zacatecnik vs Pokrocily
-- jednoduchy graf nebo progress bar, pokud to zbytecne nekomplikuje reseni
-
-## Ulozeni dat
-
-Pouzij pouze soubory ve sdilene slozce OneDrive.
-
-Konfigurace cesty ke sdilene slozce musi byt v `appsettings.json`.
-
-Pouzij JSON.
-
-Neukladej vsechny zaky do jednoho souboru.
-
-Povinna struktura sdilenych dat:
-- `Data/Students/`
-- `Data/Sessions/`
-- `Data/Exports/`
-- `Config/`
-- `Logs/`
-
-Kazdy zak musi mit:
-- samostatny souhrnny JSON
-- samostatne JSON soubory relaci
-
-Po kazde odpovedi uloz minimalne:
-- `studentId` nebo `studentName`
-- `timestamp`
-- `sessionId`
-- `learningMode`
-- `operationType`
-- `exampleText`
-- `offeredAnswers` jen pro Zacatecnik
-- `chosenAnswer`
-- `correctAnswer`
-- `isCorrect`
-- `inputMethod`
-- `runningCorrectCount`
-- `runningWrongCount`
-- `runningTotalCount`
-- `runningSuccessPercent`
-- `lastActivityUtc`
-
-## Odolnost
-
-Musi byt osetreno:
-- chybejici sdilena slozka
-- nedostupna sdilena slozka
-- poskozeny JSON
-- docasne uzamcene soubory
-- zpozdena synchronizace OneDrive
-
-Pravidla:
-- jeden rozbity soubor nesmi shodit celou aplikaci
-- StudentApp musi pri chybe zapisu zobrazit srozumitelnou hlasku a provest bezpecny retry
-- TeacherDashboard musi pokracovat, i kdyz nejde nacist jeden zak
-- chyby se musi logovat
-
-## Povinne modely
-
-Implementuj minimalne:
-- `AppConfiguration`
-- `StudentSummary`
-- `StudentSession`
-- `AnswerRecord`
-- `StudentProgressSnapshot`
-- `ClassOverviewItem`
-- `LearningMode`
-- `OperationType`
-
-## Povinne sluzby
-
-Implementuj minimalne:
-- `ConfigurationService`
-- `FileSystemStorageService`
-- `StatisticsService`
-- `MathProblemGenerator`
-- `RetryFileAccessService`
-- `LoggingService`
-- `CsvExportService`
-- `StudentProgressService`
-
-## Sample data
-
-Vytvor sample data alespon pro 3 zaky a vice relaci:
-- `sample-data/Data/Students/*.json`
-- `sample-data/Data/Sessions/*.json`
-
-## README
-
-Pridat README s:
-- jak otevrit solution
-- jak buildnout projekt
-- jak nastavit OneDrive cestu
-- jak spustit StudentApp
-- jak spustit TeacherDashboard
-
-## Definice hotove prace
-
-Ukol je hotovy az kdyz:
-- existuji vsechny povinne soubory
-- je implementovana veskera povinna funkcnost
-- reseni je buildovatelne
-- StudentApp funguje
-- TeacherDashboard funguje
-- existuji sample data
-- existuje README
-- nic mimo workspace nebylo zmeneno
+Student autentizace:
+- `POST /api/classes/{classId}/login`
+- po úspěchu vzniká `studentSessionToken`
+- upload výsledků na `POST /api/students/{classId}/{studentId}/results` vyžaduje student Bearer token
