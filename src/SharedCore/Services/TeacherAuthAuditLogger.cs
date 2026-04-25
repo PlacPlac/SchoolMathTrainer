@@ -24,7 +24,8 @@ public sealed class TeacherAuthAuditLogger
         string remoteAddress,
         string route,
         int statusCode,
-        string reason)
+        string reason,
+        string role = "")
     {
         var entry = new TeacherAuthAuditEntry
         {
@@ -34,7 +35,8 @@ public sealed class TeacherAuthAuditLogger
             RemoteAddress = NormalizeForLog(remoteAddress),
             Route = NormalizeForLog(route),
             StatusCode = statusCode,
-            Reason = NormalizeForLog(reason)
+            Reason = NormalizeForLog(reason),
+            Role = NormalizeForLog(role)
         };
 
         var line = JsonSerializer.Serialize(entry, SerializerOptions);
@@ -68,4 +70,5 @@ public sealed class TeacherAuthAuditEntry
     public string Route { get; set; } = string.Empty;
     public int StatusCode { get; set; }
     public string Reason { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
 }

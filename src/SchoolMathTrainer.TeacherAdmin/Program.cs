@@ -1,4 +1,5 @@
 using System.Text;
+using SharedCore.Models;
 using SharedCore.Services;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -21,8 +22,17 @@ try
             var displayName = string.IsNullOrWhiteSpace(parsed.DisplayName)
                 ? parsed.Username
                 : parsed.DisplayName;
-            var created = store.CreateTeacher(parsed.Username, displayName, createPassword);
-            Console.WriteLine($"OK: Učitel '{created.Username}' byl vytvořen. Aktivní: {created.IsActive}.");
+            var role = TeacherRoles.Normalize(parsed.Role);
+            var created = store.CreateTeacher(parsed.Username, displayName, createPassword, role);
+            new TeacherAuthAuditLogger(store).Write(
+                "teacher_account_created",
+                created.Username,
+                "TeacherAdmin CLI",
+                "create-teacher",
+                0,
+                "Teacher account created by CLI.",
+                created.Role);
+            Console.WriteLine($"OK: Učitel '{created.Username}' byl vytvořen. Role: {created.Role}. Aktivní: {created.IsActive}.");
             return 0;
 
         case "set-teacher-password":
@@ -54,7 +64,7 @@ try
 
             foreach (var teacher in teachers)
             {
-                Console.WriteLine($"{teacher.Username}\t{teacher.DisplayName}\tactive={teacher.IsActive}\tcreatedUtc={teacher.CreatedUtc:O}\tupdatedUtc={teacher.UpdatedUtc:O}");
+                Console.WriteLine($"{teacher.Username}\t{teacher.DisplayName}\trole={TeacherRoles.Normalize(teacher.Role)}\tactive={teacher.IsActive}\tcreatedUtc={teacher.CreatedUtc:O}\tupdatedUtc={teacher.UpdatedUtc:O}");
             }
 
             return 0;
@@ -76,8 +86,8 @@ static void PrintUsage()
     Console.WriteLine("SchoolMathTrainer.TeacherAdmin");
     Console.WriteLine();
     Console.WriteLine("Příkazy:");
-    Console.WriteLine("  create-teacher --username <jmeno> --display-name <zobrazene-jmeno> [--password <heslo> | --password-base64 <base64> | --password-stdin] [--data-root <cesta>]");
-    Console.WriteLine("  set-teacher-password --username <jmeno> [--password <heslo> | --password-base64 <base64> | --password-stdin] [--data-root <cesta>]");
+    Console.WriteLine("  create-teacher --username <jmeno> --display-name <zobrazene-jmeno> [--role Admin|Teacher] [--password-stdin] [--data-root <cesta>]");
+    Console.WriteLine("  set-teacher-password --username <jmeno> [--password-stdin] [--data-root <cesta>]");
     Console.WriteLine("  deactivate-teacher --username <jmeno> [--data-root <cesta>]");
     Console.WriteLine("  activate-teacher --username <jmeno> [--data-root <cesta>]");
     Console.WriteLine("  list-teachers [--data-root <cesta>]");
@@ -104,16 +114,6 @@ static string ResolvePassword(CommandLine parsed)
         }
 
         return stdinPassword;
-    }
-
-    if (!string.IsNullOrEmpty(parsed.PasswordBase64))
-    {
-        return Encoding.UTF8.GetString(Convert.FromBase64String(parsed.PasswordBase64));
-    }
-
-    if (!string.IsNullOrEmpty(parsed.Password))
-    {
-        return parsed.Password;
     }
 
     Console.Error.Write("Zadejte heslo učitele: ");
@@ -157,8 +157,7 @@ internal sealed class CommandLine
     public string DataRoot { get; init; } = TeacherAccountStore.DefaultDataRoot;
     public string Username { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
-    public string Password { get; init; } = string.Empty;
-    public string PasswordBase64 { get; init; } = string.Empty;
+    public string Role { get; init; } = TeacherRoles.Teacher;
     public bool PasswordStdin { get; init; }
 
     public static CommandLine Parse(string[] args)
@@ -180,6 +179,11 @@ internal sealed class CommandLine
                 continue;
             }
 
+            if (!IsValueOption(key))
+            {
+                throw new ArgumentException($"Nepodporovaný parametr: {key}");
+            }
+
             if (index + 1 >= args.Length)
             {
                 throw new ArgumentException($"Parametr {key} nemá hodnotu.");
@@ -194,12 +198,17 @@ internal sealed class CommandLine
             DataRoot = Get(values, "--data-root", TeacherAccountStore.DefaultDataRoot),
             Username = Get(values, "--username"),
             DisplayName = Get(values, "--display-name"),
-            Password = Get(values, "--password"),
-            PasswordBase64 = Get(values, "--password-base64"),
+            Role = TeacherRoles.Normalize(Get(values, "--role", TeacherRoles.Teacher)),
             PasswordStdin = values.ContainsKey("--password-stdin")
         };
     }
 
     private static string Get(Dictionary<string, string> values, string key, string defaultValue = "") =>
         values.TryGetValue(key, out var value) ? value : defaultValue;
+
+    private static bool IsValueOption(string key) =>
+        string.Equals(key, "--data-root", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(key, "--username", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(key, "--display-name", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(key, "--role", StringComparison.OrdinalIgnoreCase);
 }

@@ -86,6 +86,7 @@ public sealed class TeacherTokenService
             return new TeacherTokenValidationResult(
                 true,
                 account.Username,
+                TeacherRoles.Normalize(account.Role),
                 session.ExpiresUtc);
         }
     }

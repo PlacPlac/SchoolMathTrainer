@@ -413,6 +413,21 @@ static bool TryAuthorizeTeacher(
     TeacherAuthAuditLogger audit,
     out IResult? unauthorizedResult)
 {
+    return TryAuthorizeTeacherRole(
+        httpContext,
+        teacherTokens,
+        audit,
+        requiredRole: string.Empty,
+        out unauthorizedResult);
+}
+
+static bool TryAuthorizeTeacherRole(
+    HttpContext httpContext,
+    TeacherTokenService teacherTokens,
+    TeacherAuthAuditLogger audit,
+    string requiredRole,
+    out IResult? unauthorizedResult)
+{
     unauthorizedResult = null;
     var request = httpContext.Request;
     var remoteAddress = GetRemoteAddress(httpContext);
@@ -428,6 +443,14 @@ static bool TryAuthorizeTeacher(
     {
         audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, validation.Message);
         unauthorizedResult = Results.Unauthorized();
+        return false;
+    }
+
+    if (string.Equals(requiredRole, TeacherRoles.Admin, StringComparison.Ordinal) &&
+        !TeacherRoles.IsAdmin(validation.Role))
+    {
+        audit.Write("teacher_forbidden_access", validation.Username, remoteAddress, request.Path, StatusCodes.Status403Forbidden, "Admin role is required.", validation.Role);
+        unauthorizedResult = Results.Forbid();
         return false;
     }
 

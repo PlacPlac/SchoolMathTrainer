@@ -51,10 +51,11 @@ public sealed class TeacherAccountStore
         }
     }
 
-    public TeacherAccount CreateTeacher(string username, string displayName, string password)
+    public TeacherAccount CreateTeacher(string username, string displayName, string password, string role = TeacherRoles.Teacher)
     {
         var normalizedUsername = NormalizeUsername(username);
         var normalizedDisplayName = NormalizeDisplayName(displayName, normalizedUsername);
+        var normalizedRole = TeacherRoles.Normalize(role);
 
         lock (_sync)
         {
@@ -72,6 +73,7 @@ public sealed class TeacherAccountStore
                 DisplayName = normalizedDisplayName,
                 PasswordHash = hash.PasswordHash,
                 PasswordSalt = hash.PasswordSalt,
+                Role = normalizedRole,
                 IsActive = true,
                 CreatedUtc = now,
                 UpdatedUtc = now
@@ -210,6 +212,11 @@ public sealed class TeacherAccountStore
         var teachers = JsonSerializer.Deserialize<List<TeacherAccount>>(
             File.ReadAllText(TeachersFilePath, Encoding.UTF8),
             SerializerOptions);
+        foreach (var teacher in teachers ?? [])
+        {
+            teacher.Role = TeacherRoles.Normalize(teacher.Role);
+        }
+
         return teachers ?? [];
     }
 

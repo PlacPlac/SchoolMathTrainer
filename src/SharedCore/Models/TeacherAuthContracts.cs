@@ -18,6 +18,7 @@ public sealed record TeacherLoginClientResult(
 public sealed record TeacherTokenValidationResult(
     bool Success,
     string Username = "",
+    string Role = TeacherRoles.Teacher,
     DateTime? ExpiresUtc = null,
     string Message = "");
 
