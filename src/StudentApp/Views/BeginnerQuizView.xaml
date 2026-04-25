@@ -8,8 +8,8 @@
              VerticalAlignment="Stretch"
              mc:Ignorable="d">
     <Border Style="{StaticResource CardBorderStyle}"
-            Margin="8"
-            Padding="14"
+            Margin="4"
+            Padding="10"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
         <Grid MaxWidth="820"
@@ -23,7 +23,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Grid Margin="0,0,0,10">
+                <Grid Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -36,49 +36,50 @@
                                Text="{Binding StudentName, StringFormat=Aktivní žák: {0}}"
                                Style="{StaticResource SubtitleStyle}"
                                VerticalAlignment="Center"
-                               Margin="18,4,0,0" />
+                               Margin="18,2,0,0" />
                     <TextBlock Grid.Column="2"
                                Text="{Binding ScoreLine}"
                                FontSize="17"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource AccentBrush}"
                                VerticalAlignment="Center"
-                               Margin="18,4,0,0" />
+                               Margin="18,2,0,0" />
                 </Grid>
 
                 <StackPanel Grid.Row="1"
-                            Margin="0,2,0,6"
+                            Margin="0,0,0,4"
                             HorizontalAlignment="Center">
                     <TextBlock Text="{Binding Expression}"
                                Style="{StaticResource BigEquationStyle}"
-                               FontSize="34" />
+                               FontSize="30" />
                     <TextBlock Text="{Binding FeedbackMessage}"
                                HorizontalAlignment="Center"
-                               FontSize="15"
+                               FontSize="14"
                                Foreground="{StaticResource AccentBrush}"
                                TextAlignment="Center"
-                               Margin="0,4,0,0" />
+                               Margin="0,2,0,0" />
                 </StackPanel>
 
                 <TextBlock Grid.Row="2"
                            Text="Vyber jednu odpověď."
                            Style="{StaticResource SubtitleStyle}"
                            HorizontalAlignment="Center"
-                           Margin="0,0,0,8" />
+                           Margin="0,0,0,4" />
 
                 <Border Grid.Row="3"
-                        Background="#66FFFFFF"
+                        Background="{StaticResource SoftGreenBrush}"
                         CornerRadius="22"
-                        Padding="8"
-                        MinHeight="152"
+                        Padding="6"
+                        MinHeight="158"
                         MinWidth="540"
                         MaxWidth="640"
+                        Margin="0,0,0,8"
                         HorizontalAlignment="Center">
                     <UniformGrid Columns="2"
                                  Rows="2">
-                        <Button Margin="6"
-                                Padding="8"
-                                Height="76"
+                        <Button Margin="5"
+                                Padding="6"
+                                Height="66"
                                 FontSize="20"
                                 FontWeight="Bold"
                                 Content="{Binding AnswerOption1}"
@@ -86,9 +87,9 @@
                                 CommandParameter="{Binding AnswerOption1}"
                                 IsEnabled="{Binding IsRoundActive}"
                                 Style="{StaticResource AnswerButtonStyle}" />
-                        <Button Margin="6"
-                                Padding="8"
-                                Height="76"
+                        <Button Margin="5"
+                                Padding="6"
+                                Height="66"
                                 FontSize="20"
                                 FontWeight="Bold"
                                 Content="{Binding AnswerOption2}"
@@ -96,9 +97,9 @@
                                 CommandParameter="{Binding AnswerOption2}"
                                 IsEnabled="{Binding IsRoundActive}"
                                 Style="{StaticResource AnswerButtonStyle}" />
-                        <Button Margin="6"
-                                Padding="8"
-                                Height="76"
+                        <Button Margin="5"
+                                Padding="6"
+                                Height="66"
                                 FontSize="20"
                                 FontWeight="Bold"
                                 Content="{Binding AnswerOption3}"
@@ -106,9 +107,9 @@
                                 CommandParameter="{Binding AnswerOption3}"
                                 IsEnabled="{Binding IsRoundActive}"
                                 Style="{StaticResource AnswerButtonStyle}" />
-                        <Button Margin="6"
-                                Padding="8"
-                                Height="76"
+                        <Button Margin="5"
+                                Padding="6"
+                                Height="66"
                                 FontSize="20"
                                 FontWeight="Bold"
                                 Content="{Binding AnswerOption4}"
@@ -131,7 +132,7 @@
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
-                <Border Background="#F8FFFFFF"
+                <Border Background="{StaticResource CardBrush}"
                         BorderBrush="{StaticResource AccentBrush}"
                         BorderThickness="2"
                         CornerRadius="22"

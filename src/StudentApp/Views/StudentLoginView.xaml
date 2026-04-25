@@ -4,40 +4,64 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d">
-    <Border Style="{StaticResource CardBorderStyle}">
+    <Border Style="{StaticResource CardBorderStyle}"
+            Padding="18">
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-            <StackPanel Margin="0,0,20,0">
+            <StackPanel MaxWidth="760"
+                        HorizontalAlignment="Left">
                 <TextBlock Text="Přihlášení žáka" Style="{StaticResource SectionTitleStyle}" />
-                <TextBlock Text="{Binding WelcomeMessage}" Style="{StaticResource SubtitleStyle}" />
+                <TextBlock Text="{Binding WelcomeMessage}"
+                           Style="{StaticResource SubtitleStyle}"
+                           Margin="0,8,0,0" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal"
-                        Margin="0,0,12,0">
-                <StackPanel Margin="0,0,8,0">
-                    <TextBlock Text="Přihlašovací kód" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
-                    <TextBox Width="135"
-                             VerticalContentAlignment="Center"
-                             FontSize="20"
+            <Border Grid.Row="1"
+                    Margin="-18,18,0,0"
+                    Padding="18"
+                    Background="{StaticResource SoftBlueBrush}"
+                    BorderBrush="{StaticResource SoftLineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="18">
+                <StackPanel>
+                    <TextBlock Text="{Binding LoadedStudentFileText}"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource InkBrush}"
+                               TextWrapping="Wrap" />
+                    <TextBlock Text="Zadej přihlašovací kód a PIN pro tohoto žáka."
+                               Style="{StaticResource SubtitleStyle}"
+                               Margin="0,6,0,0" />
+                    <TextBlock Text="Přihlašovací kód musí odpovídat načtenému souboru."
+                               Style="{StaticResource SubtitleStyle}"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+
+            <WrapPanel Grid.Row="2"
+                       Margin="0,22,0,0"
+                       ItemWidth="230"
+                       MinHeight="82">
+                <StackPanel Margin="0,0,16,14">
+                    <TextBlock Text="Přihlašovací kód" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox MinWidth="210"
                              ToolTip="Přihlašovací kód"
                              Text="{Binding LoginCode, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <StackPanel Margin="0,0,8,0">
-                    <TextBlock Text="PIN" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
-                    <TextBox Width="86"
+                <StackPanel Margin="0,0,16,14">
+                    <TextBlock Text="PIN" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox MinWidth="150"
                              MaxLength="4"
-                             VerticalContentAlignment="Center"
-                             FontSize="20"
                              ToolTip="PIN"
                              Text="{Binding Pin, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <StackPanel>
+                <StackPanel Margin="0,0,16,14">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -48,21 +72,32 @@
                             </Style.Triggers>
                         </Style>
                     </StackPanel.Style>
-                    <TextBlock Text="Nový PIN" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
-                    <TextBox Width="96"
+                    <TextBlock Text="Nový PIN" Style="{StaticResource FieldLabelStyle}" />
+                    <TextBox MinWidth="150"
                              MaxLength="4"
-                             VerticalContentAlignment="Center"
-                             FontSize="20"
                              ToolTip="Nový PIN"
                              Text="{Binding NewPin, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-            </StackPanel>
+            </WrapPanel>
 
-            <Button Grid.Column="2"
-                    Width="178"
-                    Content="Vstoupit"
-                    Command="{Binding LoginCommand}"
-                    Style="{StaticResource PrimaryButtonStyle}" />
+            <WrapPanel Grid.Row="3"
+                       Margin="0,4,0,0">
+                <Button Width="190"
+                        Content="Vstoupit"
+                        Command="{Binding LoginCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0,0,12,10" />
+                <Button MinWidth="170"
+                        Content="Změnit žáka"
+                        Command="{Binding DataContext.ChangeStudentCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Margin="0,0,12,10" />
+                <Button MinWidth="120"
+                        Content="Zavřít"
+                        Command="{Binding DataContext.CloseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Margin="0,0,0,10" />
+            </WrapPanel>
         </Grid>
     </Border>
 </UserControl>

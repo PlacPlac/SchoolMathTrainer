@@ -10,8 +10,12 @@ public sealed class StudentShellViewModel : BaseViewModel
     private readonly StudentProgressService _progressService;
     private readonly Action _closeAction;
     private readonly Func<bool> _importStudentConfiguration;
-    private string _headerText = "Školní počítání do 20";
-    private string _loggedInStudentText = "Přihlášený žák: -";
+    private readonly string _configuredStudentId;
+    private string _headerText = "Školní počítání";
+    private string _loggedInStudentText = "Nejsi přihlášen";
+    private string _headerStatusTitle = "Načtený soubor";
+    private string _headerStatusValue = "Není dostupné";
+    private string _headerStatusDetail = "Nepřihlášen";
     private int _selectedTabIndex;
     private bool _isLoggedIn;
 
@@ -21,14 +25,16 @@ public sealed class StudentShellViewModel : BaseViewModel
         LoggingService loggingService,
         StudentOnlineLoginService? onlineLoginService,
         StudentOnlineResultService? onlineResultService,
+        string configuredStudentId,
         Func<bool> importStudentConfiguration,
         Action closeAction)
     {
         _progressService = progressService;
+        _configuredStudentId = configuredStudentId.Trim();
         _importStudentConfiguration = importStudentConfiguration;
         _closeAction = closeAction;
 
-        Login = new StudentLoginViewModel(_progressService, onlineLoginService, onlineResultService);
+        Login = new StudentLoginViewModel(_progressService, onlineLoginService, onlineResultService, _configuredStudentId);
         BeginnerQuiz = new BeginnerQuizViewModel(_progressService, mathProblemGenerator, loggingService, onlineResultService);
         AdvancedDragDrop = new AdvancedDragDropViewModel(_progressService, mathProblemGenerator, loggingService, onlineResultService);
         MyResults = new MyResultsViewModel(_progressService);
@@ -65,6 +71,24 @@ public sealed class StudentShellViewModel : BaseViewModel
     {
         get => _loggedInStudentText;
         set => SetProperty(ref _loggedInStudentText, value);
+    }
+
+    public string HeaderStatusTitle
+    {
+        get => _headerStatusTitle;
+        set => SetProperty(ref _headerStatusTitle, value);
+    }
+
+    public string HeaderStatusValue
+    {
+        get => _headerStatusValue;
+        set => SetProperty(ref _headerStatusValue, value);
+    }
+
+    public string HeaderStatusDetail
+    {
+        get => _headerStatusDetail;
+        set => SetProperty(ref _headerStatusDetail, value);
     }
 
     public bool IsLoggedIn
@@ -137,12 +161,17 @@ public sealed class StudentShellViewModel : BaseViewModel
     private void RefreshAll()
     {
         IsLoggedIn = _progressService.IsLoggedIn;
-        HeaderText = IsLoggedIn
-            ? $"Školní počítání do 20 - {_progressService.CurrentStudentName}"
-            : "Školní počítání do 20";
+        HeaderText = "Školní počítání";
         LoggedInStudentText = IsLoggedIn
             ? $"Přihlášen jako: {_progressService.CurrentStudentName}"
-            : "Přihlášený žák: -";
+            : "Nejsi přihlášen";
+        HeaderStatusTitle = IsLoggedIn ? "Přihlášený žák" : "Načtený soubor";
+        HeaderStatusValue = IsLoggedIn
+            ? _progressService.CurrentStudentName
+            : string.IsNullOrWhiteSpace(_configuredStudentId)
+                ? "Není dostupné"
+                : _configuredStudentId;
+        HeaderStatusDetail = IsLoggedIn ? "Přihlášen" : "Nepřihlášen";
         BeginnerQuiz.UpdateCurrentStudent();
         MyResults.Refresh();
         ClassResults.Refresh();

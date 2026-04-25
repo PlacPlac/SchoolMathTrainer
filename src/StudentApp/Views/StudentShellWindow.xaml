@@ -5,11 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="clr-namespace:StudentApp.Views"
         mc:Ignorable="d"
-        Title="School Math Trainer - Student"
-        Width="1160"
+        Title="Školní počítání"
+        Width="1180"
         Height="900"
-        MinWidth="980"
-        MinHeight="720"
+        MinWidth="840"
+        MinHeight="680"
         WindowStartupLocation="CenterScreen"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
@@ -22,11 +22,49 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Style="{StaticResource CardBorderStyle}">
-            <StackPanel>
-                <TextBlock Text="{Binding HeaderText}" Style="{StaticResource PageTitleStyle}" />
-                <TextBlock Text="Sčítání a odčítání do 20 pro začátečníky i pokročilé." Style="{StaticResource SubtitleStyle}" />
-            </StackPanel>
+        <Border Style="{StaticResource HeroCardBorderStyle}"
+                Padding="18,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Margin="0,0,24,0">
+                    <TextBlock Text="{Binding HeaderText}"
+                               Style="{StaticResource PageTitleStyle}"
+                               FontSize="30" />
+                    <TextBlock Text="Procvičuj sčítání a odčítání zábavnou formou"
+                               Style="{StaticResource SubtitleStyle}"
+                               FontSize="15"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        MinWidth="170"
+                        Padding="12,8"
+                        VerticalAlignment="Center"
+                        Background="{StaticResource CardBrush}"
+                        CornerRadius="18">
+                    <StackPanel>
+                        <TextBlock Text="{Binding HeaderStatusTitle}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource MutedInkBrush}" />
+                        <TextBlock Text="{Binding HeaderStatusValue}"
+                                   Margin="0,4,0,0"
+                                   FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource InkBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding HeaderStatusDetail}"
+                                   Margin="0,2,0,0"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource MutedInkBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
 
         <views:StudentLoginView Grid.Row="1"
@@ -36,7 +74,7 @@
                 <Style TargetType="views:StudentLoginView">
                     <Setter Property="Visibility" Value="Visible" />
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsLoggedIn}" Value="True">
+                        <DataTrigger Binding="{Binding DataContext.IsLoggedIn, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -45,9 +83,11 @@
         </views:StudentLoginView>
 
         <Border Grid.Row="1"
-                Margin="0,10,0,8">
+                Margin="0,8,0,6"
+                Padding="18,8">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource CardBorderStyle}">
+                    <Setter Property="Padding" Value="18,8" />
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsLoggedIn}" Value="True">
@@ -60,36 +100,142 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Margin="0,0,20,0">
-                    <TextBlock Text="Žák je přihlášený" Style="{StaticResource SectionTitleStyle}" />
-                    <TextBlock Text="{Binding LoggedInStudentText}" Style="{StaticResource SubtitleStyle}" />
+                    <TextBlock Text="Žák je přihlášený"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource InkBrush}" />
+                    <TextBlock Text="{Binding LoggedInStudentText}"
+                               FontSize="14"
+                               Foreground="{StaticResource MutedInkBrush}"
+                               Margin="0,3,0,0" />
                 </StackPanel>
 
-                <TextBlock Grid.Column="1"
-                           VerticalAlignment="Center"
-                           Text="Přihlášení bylo dokončeno. Můžeš pokračovat do hry."
-                           Style="{StaticResource SubtitleStyle}"
-                           TextAlignment="Right" />
+                <Button Grid.Column="1"
+                        Content="Změnit žáka"
+                        Command="{Binding ChangeStudentCommand}"
+                        Style="{StaticResource QuietButtonStyle}"
+                        MinWidth="140"
+                        MinHeight="38"
+                        Padding="12,7"
+                        Margin="0,0,10,0" />
+                <Button Grid.Column="2"
+                        Content="Zavřít"
+                        Command="{Binding CloseCommand}"
+                        Style="{StaticResource QuietButtonStyle}"
+                        MinWidth="100"
+                        MinHeight="38"
+                        Padding="12,7" />
             </Grid>
         </Border>
 
-        <ScrollViewer Grid.Row="2"
-                      Margin="0,0,0,8"
-                      HorizontalScrollBarVisibility="Auto"
-                      VerticalScrollBarVisibility="Disabled"
-                      CanContentScroll="False">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="Začátečník" Command="{Binding ShowBeginnerCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Width="176" />
-                <Button Content="Pokročilý" Command="{Binding ShowAdvancedCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Width="168" />
-                <Button Content="Můj výsledek" Command="{Binding ShowMyResultsCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Width="180" />
-                <Button Content="Třídní výsledky" Command="{Binding ShowClassResultsCommand}" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Width="190" />
-                <Button Content="Nová hra" Command="{Binding NewGameCommand}" Style="{StaticResource AnswerButtonStyle}" Margin="0,0,8,0" Width="156" />
-                <Button Content="Změnit žáka" Command="{Binding ChangeStudentCommand}" Style="{StaticResource AnswerButtonStyle}" Margin="0,0,8,0" Width="180" />
-                <Button Content="Zavřít" Command="{Binding CloseCommand}" Style="{StaticResource AnswerButtonStyle}" Margin="0" Width="138" />
-            </StackPanel>
-        </ScrollViewer>
+        <Border Grid.Row="2"
+                Margin="0,0,0,6"
+                Padding="18,10">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource CardBorderStyle}">
+                    <Setter Property="Padding" Value="18,10" />
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsLoggedIn}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Vyber si procvičování"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource InkBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0" />
+                    <Button Command="{Binding ShowBeginnerCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            MinWidth="150"
+                            MinHeight="46"
+                            Padding="14,8"
+                            Margin="0,0,10,0">
+                        <StackPanel>
+                            <TextBlock Text="Začátečník"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="White"
+                                       TextAlignment="Center" />
+                            <TextBlock Text="Počítání do 20"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FFFFF6F8"
+                                       TextAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ShowAdvancedCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Background="{StaticResource AdvancedButton}"
+                            MinWidth="150"
+                            MinHeight="46"
+                            Padding="14,8"
+                            Margin="0,0,10,0">
+                        <StackPanel>
+                            <TextBlock Text="Pokročilý"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="White"
+                                       TextAlignment="Center" />
+                            <TextBlock Text="Počítání do 20"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#FFFFF6F8"
+                                       TextAlignment="Center"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NewGameCommand}"
+                            Content="Nová hra"
+                            Style="{StaticResource AnswerButtonStyle}"
+                            Background="{StaticResource NewGameButton}"
+                            Foreground="White"
+                            MinHeight="46"
+                            Padding="14,8"
+                            MinWidth="140" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="1"
+                            Orientation="Horizontal"
+                            Margin="0,8,0,0">
+                    <TextBlock Text="Výsledky"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource InkBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0" />
+                    <Button Content="Můj výsledek"
+                            Command="{Binding ShowMyResultsCommand}"
+                            Style="{StaticResource AnswerButtonStyle}"
+                            Margin="0,0,12,0"
+                            MinHeight="42"
+                            Padding="14,8"
+                            MinWidth="170" />
+                    <Button Content="Třídní výsledky"
+                            Command="{Binding ShowClassResultsCommand}"
+                            Style="{StaticResource AnswerButtonStyle}"
+                            Margin="0,0,12,0"
+                            MinHeight="42"
+                            Padding="14,8"
+                            MinWidth="190" />
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <Border Grid.Row="3"
                 Padding="28"
@@ -110,7 +256,7 @@
                            Style="{StaticResource SectionTitleStyle}"
                            TextAlignment="Center"
                            Margin="0,0,0,10" />
-                <TextBlock Text="Hry a výsledky se zpřístupní až po úspěšném přihlášení přes přihlašovací kód a PIN."
+                <TextBlock Text="Hry a výsledky se zpřístupní po přihlášení."
                            Style="{StaticResource SubtitleStyle}"
                            TextAlignment="Center"
                            TextWrapping="Wrap" />
@@ -121,6 +267,20 @@
                     SelectedIndex="{Binding SelectedTabIndex}"
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Stretch">
+            <TabControl.ItemContainerStyle>
+                <Style TargetType="TabItem">
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TabItem">
+                                <Border Width="0"
+                                        Height="0"
+                                        Padding="0"
+                                        Margin="0" />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TabControl.ItemContainerStyle>
             <TabControl.Style>
                 <Style TargetType="TabControl" BasedOn="{StaticResource FriendlyTabControlStyle}">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -137,7 +297,9 @@
                                         VerticalAlignment="Stretch" />
             </TabItem>
             <TabItem Header="Pokročilý">
-                <views:AdvancedDragDropView DataContext="{Binding AdvancedDragDrop}" />
+                <views:AdvancedDragDropView DataContext="{Binding AdvancedDragDrop}"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch" />
             </TabItem>
             <TabItem Header="Můj výsledek">
                 <views:MyResultsView DataContext="{Binding MyResults}" />

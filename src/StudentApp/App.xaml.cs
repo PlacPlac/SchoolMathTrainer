@@ -89,6 +89,7 @@ public partial class App : Application
                 loggingService,
                 onlineLoginService,
                 onlineResultService,
+                sharedDataFolderSetting.StudentId,
                 () => MainWindow is null ? false : ImportStudentConfiguration(MainWindow),
                 () => shellWindow?.Close());
             shellWindow = new StudentShellWindow(shellViewModel);

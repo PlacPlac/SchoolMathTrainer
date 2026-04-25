@@ -9,21 +9,28 @@ public sealed class StudentLoginViewModel : BaseViewModel
     private readonly StudentProgressService _progressService;
     private readonly StudentOnlineLoginService? _onlineLoginService;
     private readonly StudentOnlineResultService? _onlineResultService;
+    private readonly string _configuredStudentId;
     private string _loginCode = string.Empty;
     private string _pin = string.Empty;
     private string _newPin = string.Empty;
     private string _welcomeMessage = "Zadej přihlašovací kód a PIN.";
+    private string _loadedStudentFileText = "Načtený soubor pro žáka: není dostupné";
     private bool _isNewPinRequired;
     private bool _isLoginInProgress;
 
     public StudentLoginViewModel(
         StudentProgressService progressService,
         StudentOnlineLoginService? onlineLoginService,
-        StudentOnlineResultService? onlineResultService = null)
+        StudentOnlineResultService? onlineResultService = null,
+        string configuredStudentId = "")
     {
         _progressService = progressService;
         _onlineLoginService = onlineLoginService;
         _onlineResultService = onlineResultService;
+        _configuredStudentId = configuredStudentId.Trim();
+        LoadedStudentFileText = string.IsNullOrWhiteSpace(_configuredStudentId)
+            ? "Načtený soubor pro žáka: není dostupné"
+            : $"Načtený soubor pro žáka: {_configuredStudentId}";
         LoginCommand = new RelayCommand(LoginStudent);
     }
 
@@ -49,6 +56,12 @@ public sealed class StudentLoginViewModel : BaseViewModel
     {
         get => _welcomeMessage;
         set => SetProperty(ref _welcomeMessage, value);
+    }
+
+    public string LoadedStudentFileText
+    {
+        get => _loadedStudentFileText;
+        set => SetProperty(ref _loadedStudentFileText, value);
     }
 
     public bool IsNewPinRequired
