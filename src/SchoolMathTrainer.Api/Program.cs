@@ -335,6 +335,68 @@ app.MapPost("/api/admin/teachers/{username}/activate", (string username, HttpCon
     }
 });
 
+app.MapDelete("/api/admin/teachers/{username}", (string username, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        var target = teacherStore.FindTeacher(username);
+        if (target is null)
+        {
+            return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+        }
+
+        if (string.Equals(username.Trim(), admin.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            WriteAdminAudit(audit, httpContext, "admin_teacher_deleted", admin, target, "blocked:self-delete", StatusCodes.Status409Conflict);
+            return Results.Conflict(new ApiMessageResponse("Právě přihlášený administrátor nemůže odstranit vlastní účet."));
+        }
+
+        var deleted = teacherStore.DeleteTeacher(username);
+        var revokedSessions = teacherTokens.RevokeTokensForTeacher(deleted.Username);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_deleted", admin, deleted, $"ok; revokedSessions={revokedSessions}");
+        return Results.Ok(new ApiMessageResponse("Učitelský účet byl odstraněn."));
+    }
+    catch (InvalidOperationException ex) when (IsLastAdminDeleteProtection(ex))
+    {
+        var target = teacherStore.FindTeacher(username);
+        if (target is not null)
+        {
+            WriteAdminAudit(audit, httpContext, "admin_teacher_deleted", admin, target, "blocked:last-admin", StatusCodes.Status409Conflict);
+        }
+
+        return Results.Conflict(new ApiMessageResponse("Poslední administrátor nesmí být odstraněn."));
+    }
+    catch (InvalidOperationException ex) when (IsLastActiveAdminProtection(ex))
+    {
+        var target = teacherStore.FindTeacher(username);
+        if (target is not null)
+        {
+            WriteAdminAudit(audit, httpContext, "admin_teacher_deleted", admin, target, "blocked:last-active-admin", StatusCodes.Status409Conflict);
+        }
+
+        return Results.Conflict(new ApiMessageResponse("Poslední aktivní administrátor nesmí být odstraněn."));
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher delete request for {Username}.", username);
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher delete request failed for {Username}.", username);
+        return Results.Problem("Učitelský účet se nepodařilo odstranit.");
+    }
+});
+
 app.MapGet("/api/classes/{classId}", (string classId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
     if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
@@ -711,14 +773,15 @@ static void WriteAdminAudit(
     string eventType,
     TeacherTokenValidationResult admin,
     TeacherAccount target,
-    string result)
+    string result,
+    int statusCode = StatusCodes.Status200OK)
 {
     audit.Write(
         eventType,
         admin.Username,
         GetRemoteAddress(httpContext),
         httpContext.Request.Path,
-        StatusCodes.Status200OK,
+        statusCode,
         "Admin teacher account action completed.",
         TeacherRoles.Normalize(target.Role),
         target.Username,
@@ -727,6 +790,9 @@ static void WriteAdminAudit(
 
 static bool IsLastActiveAdminProtection(InvalidOperationException ex) =>
     ex.Message.Contains("last active admin", StringComparison.OrdinalIgnoreCase);
+
+static bool IsLastAdminDeleteProtection(InvalidOperationException ex) =>
+    ex.Message.Contains("last admin", StringComparison.OrdinalIgnoreCase);
 
 static IResult CreateTeacherLoginLockedResult(HttpContext httpContext, TimeSpan retryAfter)
 {

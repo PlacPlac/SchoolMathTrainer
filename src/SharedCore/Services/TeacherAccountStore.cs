@@ -181,6 +181,40 @@ public sealed class TeacherAccountStore
         }
     }
 
+    public TeacherAccount DeleteTeacher(string username)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+
+        lock (_sync)
+        {
+            var teachers = LoadTeachersUnsafe();
+            var account = FindTeacherUnsafe(teachers, normalizedUsername);
+            if (account is null)
+            {
+                throw new InvalidOperationException("Teacher account was not found.");
+            }
+
+            if (TeacherRoles.IsAdmin(account.Role))
+            {
+                var adminCount = CountAdmins(teachers);
+                var activeAdminCount = CountActiveAdmins(teachers);
+                if (adminCount <= 1)
+                {
+                    throw new InvalidOperationException("The last admin cannot be deleted.");
+                }
+
+                if (account.IsActive && activeAdminCount <= 1)
+                {
+                    throw new InvalidOperationException("The last active admin cannot be deleted.");
+                }
+            }
+
+            teachers.Remove(account);
+            SaveTeachersUnsafe(teachers);
+            return account;
+        }
+    }
+
     public TeacherAccount? VerifyCredentials(string username, string password)
     {
         var normalizedUsername = NormalizeUsername(username);
@@ -285,6 +319,9 @@ public sealed class TeacherAccountStore
 
     private static int CountActiveAdmins(List<TeacherAccount> teachers) =>
         teachers.Count(account => account.IsActive && TeacherRoles.IsAdmin(account.Role));
+
+    private static int CountAdmins(List<TeacherAccount> teachers) =>
+        teachers.Count(account => TeacherRoles.IsAdmin(account.Role));
 
     private static void SaveJsonAtomic<T>(string path, T value)
     {

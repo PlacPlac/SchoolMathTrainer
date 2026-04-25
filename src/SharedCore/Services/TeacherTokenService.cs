@@ -115,6 +115,30 @@ public sealed class TeacherTokenService
         }
     }
 
+    public int RevokeTokensForTeacher(string username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return 0;
+        }
+
+        var normalizedUsername = username.Trim().ToLowerInvariant();
+        lock (_sync)
+        {
+            var sessions = LoadSessionsUnsafe();
+            var remainingSessions = sessions
+                .Where(session => !string.Equals(session.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var revokedCount = sessions.Count - remainingSessions.Count;
+            if (revokedCount > 0)
+            {
+                SaveSessionsUnsafe(remainingSessions);
+            }
+
+            return revokedCount;
+        }
+    }
+
     private string SessionsFilePath => Path.Combine(_accountStore.DataRoot, "teacher-sessions.json");
 
     private List<TeacherSessionRecord> LoadSessionsUnsafe()

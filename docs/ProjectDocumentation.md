@@ -195,6 +195,8 @@ Teacher autentizace:
 - účty bez uložené role se načítají jako `Teacher`,
 - admin endpointy pod `/api/admin/*` vyžadují roli `Admin`,
 - poslední aktivní `Admin` nesmí být deaktivován ani převeden na `Teacher`,
+- učitelský účet lze odstranit jen server-side chráněným admin endpointem,
+- nelze odstranit posledního `Admin` ani právě přihlášeného administrátora,
 - `TeacherApp` před úspěšným přihlášením nezobrazuje interní administraci a nenačítá data třídy,
 - po odhlášení nebo ztrátě session se interní panely skryjí a zobrazená data se vyčistí,
 - neukládá token do `.smtcfg`,
@@ -230,8 +232,11 @@ Admin endpointy s Bearer tokenem a rolí `Admin`:
 | `POST` | `/api/admin/teachers/{username}/reset-password` | Reset hesla učitele. |
 | `POST` | `/api/admin/teachers/{username}/deactivate` | Deaktivace učitele. |
 | `POST` | `/api/admin/teachers/{username}/activate` | Aktivace učitele. |
+| `DELETE` | `/api/admin/teachers/{username}` | Odstranění učitele se zneplatněním jeho sessions. |
 
-Admin endpointy auditují vytvoření, úpravu, reset hesla, aktivaci, deaktivaci a změnu role učitele. Audit neobsahuje hesla, hashe, salty, tokeny ani PINy.
+Admin endpointy auditují vytvoření, úpravu, reset hesla, aktivaci, deaktivaci, odstranění a změnu role učitele. Audit neobsahuje hesla, hashe, salty, tokeny ani PINy.
+
+Odstranění učitele nemaže audit, žákovská data ani `teacher-auth-settings.json`. Pro běžné vypnutí účtu je vhodnější deaktivace.
 
 ## Student autentizace
 

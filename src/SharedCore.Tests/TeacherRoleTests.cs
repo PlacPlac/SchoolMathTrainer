@@ -160,6 +160,82 @@ public sealed class TeacherRoleTests
         Assert.IsFalse(json.Contains("session", StringComparison.OrdinalIgnoreCase));
     }
 
+    [TestMethod]
+    public void LastActiveAdminCannotBeDeleted()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        temp.Store.CreateTeacher(
+            "only.admin",
+            "Only Admin",
+            generatedPassword,
+            TeacherRoles.Admin);
+
+        Assert.ThrowsException<InvalidOperationException>(() =>
+            temp.Store.DeleteTeacher("only.admin"));
+    }
+
+    [TestMethod]
+    public void LastAdminCannotBeDeletedEvenWhenInactive()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        var admin = temp.Store.CreateTeacher(
+            "only.admin",
+            "Only Admin",
+            generatedPassword,
+            TeacherRoles.Admin);
+        WriteTeachers(temp.Store, [
+            new TeacherAccount
+            {
+                Username = admin.Username,
+                DisplayName = admin.DisplayName,
+                PasswordHash = admin.PasswordHash,
+                PasswordSalt = admin.PasswordSalt,
+                Role = admin.Role,
+                IsActive = false,
+                CreatedUtc = admin.CreatedUtc,
+                UpdatedUtc = admin.UpdatedUtc
+            }
+        ]);
+
+        Assert.ThrowsException<InvalidOperationException>(() =>
+            temp.Store.DeleteTeacher("only.admin"));
+    }
+
+    [TestMethod]
+    public void RegularTeacherCanBeDeletedAndDisappearsFromList()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        temp.Store.CreateTeacher("admin.user", "Admin User", generatedPassword, TeacherRoles.Admin);
+        temp.Store.CreateTeacher("teacher.user", "Teacher User", generatedPassword, TeacherRoles.Teacher);
+
+        var deleted = temp.Store.DeleteTeacher("teacher.user");
+        var remaining = temp.Store.ListTeachers();
+
+        Assert.AreEqual("teacher.user", deleted.Username);
+        Assert.IsFalse(remaining.Any(account => account.Username == "teacher.user"));
+    }
+
+    [TestMethod]
+    public void RevokingDeletedTeacherSessionsInvalidatesIssuedToken()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        temp.Store.CreateTeacher("admin.user", "Admin User", generatedPassword, TeacherRoles.Admin);
+        var teacher = temp.Store.CreateTeacher("teacher.user", "Teacher User", generatedPassword, TeacherRoles.Teacher);
+        var tokens = new TeacherTokenService(temp.Store);
+        var issued = tokens.IssueToken(teacher);
+
+        temp.Store.DeleteTeacher("teacher.user");
+        var revokedCount = tokens.RevokeTokensForTeacher("teacher.user");
+        var validation = tokens.ValidateToken(issued.Token);
+
+        Assert.AreEqual(1, revokedCount);
+        Assert.IsFalse(validation.Success);
+    }
+
     private static void WriteTeachers(TeacherAccountStore store, IReadOnlyList<TeacherAccount> accounts)
     {
         Directory.CreateDirectory(store.SecurityDirectory);
