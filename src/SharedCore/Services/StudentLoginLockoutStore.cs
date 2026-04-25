@@ -209,10 +209,22 @@ public sealed class StudentLoginLockoutStore
             return [];
         }
 
-        var records = JsonSerializer.Deserialize<List<StudentLoginLockoutRecord>>(
-            File.ReadAllText(LockoutFilePath, Encoding.UTF8),
-            SerializerOptions);
-        return MigrateRecords(records ?? []);
+        var json = File.ReadAllText(LockoutFilePath, Encoding.UTF8);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return MigrateRecords(ReadRecordsFromJson(document.RootElement));
+        }
+        catch (JsonException)
+        {
+            BackupUnreadableLockoutFileUnsafe();
+            return [];
+        }
     }
 
     private void SaveRecordsUnsafe(List<StudentLoginLockoutRecord> records)
@@ -268,6 +280,87 @@ public sealed class StudentLoginLockoutStore
         }
 
         return records;
+    }
+
+    private static List<StudentLoginLockoutRecord> ReadRecordsFromJson(JsonElement root)
+    {
+        return root.ValueKind switch
+        {
+            JsonValueKind.Array => root.Deserialize<List<StudentLoginLockoutRecord>>(SerializerOptions) ?? [],
+            JsonValueKind.Object => ReadRecordsFromObject(root),
+            _ => []
+        };
+    }
+
+    private static List<StudentLoginLockoutRecord> ReadRecordsFromObject(JsonElement root)
+    {
+        if (!root.EnumerateObject().Any())
+        {
+            return [];
+        }
+
+        if (TryReadRecordArrayProperty(root, "records", out var records) ||
+            TryReadRecordArrayProperty(root, "lockouts", out records))
+        {
+            return records;
+        }
+
+        records = [];
+        foreach (var property in root.EnumerateObject())
+        {
+            if (property.Value.ValueKind is not JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var record = property.Value.Deserialize<StudentLoginLockoutRecord>(SerializerOptions);
+            if (record is null)
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(record.Key))
+            {
+                record.Key = property.Name;
+            }
+
+            records.Add(record);
+        }
+
+        return records;
+    }
+
+    private static bool TryReadRecordArrayProperty(
+        JsonElement root,
+        string propertyName,
+        out List<StudentLoginLockoutRecord> records)
+    {
+        records = [];
+        if (!root.TryGetProperty(propertyName, out var property) ||
+            property.ValueKind is not JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        records = property.Deserialize<List<StudentLoginLockoutRecord>>(SerializerOptions) ?? [];
+        return true;
+    }
+
+    private void BackupUnreadableLockoutFileUnsafe()
+    {
+        try
+        {
+            if (!File.Exists(LockoutFilePath))
+            {
+                return;
+            }
+
+            var backupPath = $"{LockoutFilePath}.invalid-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}.bak";
+            File.Copy(LockoutFilePath, backupPath, overwrite: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+        }
     }
 
     private static StudentLoginLockoutPolicy GetPolicy(string? scope) =>

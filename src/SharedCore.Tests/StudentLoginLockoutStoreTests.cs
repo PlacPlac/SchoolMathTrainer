@@ -7,6 +7,119 @@ namespace SharedCore.Tests;
 public sealed class StudentLoginLockoutStoreTests
 {
     [TestMethod]
+    public void MissingLockoutFileLoadsAsEmptyState()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsFalse(store.IsLocked(CreateValue("class"), CreateValue("login"), "192.0.2.1", out _));
+    }
+
+    [TestMethod]
+    public void EmptyLockoutFileLoadsAsEmptyState()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, string.Empty);
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsFalse(store.IsLocked(CreateValue("class"), CreateValue("login"), "192.0.2.2", out _));
+    }
+
+    [TestMethod]
+    public void WhitespaceOnlyLockoutFileLoadsAsEmptyState()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, "   \r\n\t  ");
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsFalse(store.IsLocked(CreateValue("class"), CreateValue("login"), "192.0.2.3", out _));
+    }
+
+    [TestMethod]
+    public void EmptyArrayLockoutFileLoadsAsEmptyState()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, "[]");
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsFalse(store.IsLocked(CreateValue("class"), CreateValue("login"), "192.0.2.4", out _));
+    }
+
+    [TestMethod]
+    public void EmptyObjectLockoutFileLoadsAsEmptyState()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, "{}");
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsFalse(store.IsLocked(CreateValue("class"), CreateValue("login"), "192.0.2.5", out _));
+    }
+
+    [TestMethod]
+    public void CorruptedLockoutFileDoesNotBreakIsLockedOrRegisterFailure()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, "{ this is not valid json");
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+        var classId = CreateValue("class");
+        var loginCode = CreateValue("login");
+        var remoteAddress = "192.0.2.6";
+
+        Assert.IsFalse(store.IsLocked(classId, loginCode, remoteAddress, out _));
+        var failure = store.RegisterFailure(classId, loginCode, remoteAddress);
+        var backups = Directory.GetFiles(temp.SecurityDirectory, "student-login-lockouts.json.invalid-*.bak");
+
+        Assert.AreEqual(1, failure.FailureCount);
+        Assert.IsTrue(backups.Length > 0);
+        AssertValidRecordArray(temp.LockoutFilePath);
+    }
+
+    [TestMethod]
+    public void EmptyObjectLockoutFileIsSavedAsNewArrayFormatAfterFailure()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        WriteLockoutFile(temp, "{}");
+        var now = FixedUtc();
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        store.RegisterFailure(CreateValue("class"), CreateValue("login"), "192.0.2.7");
+
+        AssertValidRecordArray(temp.LockoutFilePath);
+    }
+
+    [TestMethod]
+    public void DictionaryLockoutFileLoadsRecords()
+    {
+        using var temp = TempSecurityDirectory.Create();
+        var now = FixedUtc();
+        var classId = "legacy-dictionary-class";
+        var loginCode = "LEGACYDICTIONARYLOGIN";
+        var remoteAddress = "192.0.2.8";
+        WriteLockoutFile(
+            temp,
+            JsonSerializer.Serialize(new Dictionary<string, StudentLoginLockoutRecord>
+            {
+                [string.Join("|", classId, loginCode, remoteAddress)] = new()
+                {
+                    FailureCount = 5,
+                    FirstFailureUtc = now,
+                    LastFailureUtc = now,
+                    LockedUntilUtc = now.AddMinutes(15)
+                }
+            }));
+        var store = new StudentLoginLockoutStore(temp.SecurityDirectory, () => now);
+
+        Assert.IsTrue(store.IsLocked(classId, loginCode, remoteAddress, out var retryAfter));
+        AssertRetryAfter(retryAfter, TimeSpan.FromMinutes(15));
+    }
+
+    [TestMethod]
     public void FiveFailuresForSameStudentFromSameIpStartsStudentIpLockout()
     {
         using var temp = TempSecurityDirectory.Create();
@@ -180,6 +293,19 @@ public sealed class StudentLoginLockoutStoreTests
     {
         Assert.IsTrue(actual > expected.Subtract(TimeSpan.FromSeconds(2)));
         Assert.IsTrue(actual <= expected);
+    }
+
+    private static void WriteLockoutFile(TempSecurityDirectory temp, string content)
+    {
+        Directory.CreateDirectory(temp.SecurityDirectory);
+        File.WriteAllText(temp.LockoutFilePath, content);
+    }
+
+    private static void AssertValidRecordArray(string path)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(path));
+        Assert.AreEqual(JsonValueKind.Array, document.RootElement.ValueKind);
+        Assert.IsTrue(document.RootElement.GetArrayLength() > 0);
     }
 
     private sealed class TempSecurityDirectory : IDisposable
