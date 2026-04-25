@@ -88,7 +88,7 @@ public sealed class StudentProgressService
         CurrentStudentId = account.StudentId;
         CurrentStudentName = account.DisplayName;
         SaveStudentSummary(GetStudentSummary(CurrentStudentId, CurrentStudentName));
-        _loggingService.Log($"Student login: {CurrentStudentName} ({CurrentStudentId})");
+        _loggingService.Log("Student login completed.");
         OnDataChanged();
 
         return StudentLoginResult.LoggedIn(account.StudentId, account.DisplayName, $"Vítej, {account.DisplayName}. Můžeš začít.");
@@ -155,7 +155,7 @@ public sealed class StudentProgressService
         session.Answers.Add(answerRecord);
         SaveSession(session);
         SaveStudentSummary(GetStudentSummary(CurrentStudentId, CurrentStudentName));
-        _loggingService.Log($"Answer stored for {CurrentStudentName}: {answerRecord.ExampleText} -> {answerRecord.ChosenAnswer}");
+        _loggingService.Log("Answer stored for current student.");
         OnDataChanged();
     }
 
@@ -350,7 +350,7 @@ public sealed class StudentProgressService
         var account = accounts.FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
         if (account is null)
         {
-            _loggingService.Log($"Delete student failed: account not found for {studentId}.");
+            _loggingService.Log("Delete student failed: account not found.");
             return (false, false);
         }
 
@@ -361,7 +361,7 @@ public sealed class StudentProgressService
         }
         catch (Exception ex)
         {
-            _loggingService.LogError($"Delete student account failed for {account.DisplayName} ({account.StudentId})", ex);
+            _loggingService.LogError("Delete student account failed.", ex);
             return (false, false);
         }
 
@@ -374,7 +374,7 @@ public sealed class StudentProgressService
             var fullStudentDirectory = Path.GetFullPath(studentDirectory);
             if (!fullStudentDirectory.StartsWith(resultsRoot, StringComparison.OrdinalIgnoreCase))
             {
-                _loggingService.Log($"Delete student results skipped: path outside results root {fullStudentDirectory}.");
+                _loggingService.Log("Delete student results skipped: path outside results root.");
                 resultsDeleted = false;
             }
             else if (Directory.Exists(fullStudentDirectory))
@@ -383,12 +383,12 @@ public sealed class StudentProgressService
             }
             else
             {
-                _loggingService.Log($"Delete student results warning: directory not found {fullStudentDirectory}.");
+                _loggingService.Log("Delete student results warning: directory not found.");
             }
         }
         catch (Exception ex)
         {
-            _loggingService.LogError($"Delete student results failed for {account.DisplayName} ({account.StudentId}) at {studentDirectory}", ex);
+            _loggingService.LogError("Delete student results failed.", ex);
             resultsDeleted = false;
         }
 
@@ -396,11 +396,11 @@ public sealed class StudentProgressService
         {
             RegeneratePublicClassOverviewIfAllowed();
             OnDataChanged();
-            _loggingService.Log($"Student deleted: {account.DisplayName} ({account.StudentId}, {account.LoginCode}), resultsDeleted={resultsDeleted}.");
+            _loggingService.Log($"Student deleted. resultsDeleted={resultsDeleted}.");
         }
         catch (Exception ex)
         {
-            _loggingService.LogError($"Delete student overview refresh failed for {account.DisplayName} ({account.StudentId})", ex);
+            _loggingService.LogError("Delete student overview refresh failed.", ex);
             return (false, resultsDeleted);
         }
 
@@ -664,11 +664,11 @@ public sealed class StudentProgressService
         deleted &= DeleteMatchingJsonFiles<StudentSession>(
             _configuration.SessionDataDirectory,
             session => string.Equals(session.StudentId, studentId, StringComparison.OrdinalIgnoreCase),
-            $"legacy sessions for {studentId}");
+            "legacy sessions");
         deleted &= DeleteMatchingJsonFiles<StudentSummary>(
             _configuration.StudentDataDirectory,
             summary => string.Equals(summary.StudentId, studentId, StringComparison.OrdinalIgnoreCase),
-            $"legacy summaries for {studentId}");
+            "legacy summaries");
         return deleted;
     }
 
@@ -676,7 +676,7 @@ public sealed class StudentProgressService
     {
         if (!Directory.Exists(directory))
         {
-            _loggingService.Log($"Delete student warning: directory not found for {scope}: {directory}.");
+            _loggingService.Log($"Delete student warning: directory not found for {scope}.");
             return true;
         }
 
@@ -687,7 +687,7 @@ public sealed class StudentProgressService
             {
                 if (error is not null)
                 {
-                    _loggingService.LogError($"Delete student read failed {file}", error);
+                    _loggingService.LogError("Delete student read failed.", error);
                 }
 
                 continue;
@@ -704,7 +704,7 @@ public sealed class StudentProgressService
             }
             catch (Exception ex)
             {
-                _loggingService.LogError($"Delete student file failed {file}", ex);
+                _loggingService.LogError("Delete student file failed.", ex);
                 deleted = false;
             }
         }

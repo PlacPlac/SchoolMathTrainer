@@ -494,7 +494,7 @@ app.MapGet("/api/students/{classId}/{studentId}", (string classId, string studen
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid student detail request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid student detail request for class {ClassId}.", classId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
 });
@@ -515,12 +515,12 @@ app.MapGet("/api/students/{classId}/{studentId}/results", (string classId, strin
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid student results request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid student results request for class {ClassId}.", classId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
     {
-        logger.LogError(ex, "Student results could not be loaded for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogError(ex, "Student results could not be loaded for class {ClassId}.", classId);
         return Results.Problem("Student results could not be loaded.");
     }
 });
@@ -567,12 +567,12 @@ app.MapPost("/api/students/{classId}/{studentId}/reset-pin", (string classId, st
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid student credential reset request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid student credential reset request for class {ClassId}.", classId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
     {
-        logger.LogError(ex, "Student credential reset could not be completed for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogError(ex, "Student credential reset could not be completed for class {ClassId}.", classId);
         return Results.Problem("Student PIN could not be reset.");
     }
 });
@@ -593,12 +593,12 @@ app.MapDelete("/api/students/{classId}/{studentId}", (string classId, string stu
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid delete student request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid delete student request for class {ClassId}.", classId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
     {
-        logger.LogError(ex, "Student could not be deleted for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogError(ex, "Student could not be deleted for class {ClassId}.", classId);
         return Results.Problem("Student could not be deleted.");
     }
 });
@@ -677,12 +677,12 @@ app.MapPost("/api/students/{classId}/{studentId}/results", (string classId, stri
     }
     catch (ArgumentException ex)
     {
-        logger.LogWarning(ex, "Invalid save result request for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogWarning(ex, "Invalid save result request for class {ClassId}.", classId);
         return Results.BadRequest(new ApiMessageResponse(ex.Message));
     }
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
     {
-        logger.LogError(ex, "Result could not be saved for class {ClassId}, student {StudentId}.", classId, studentId);
+        logger.LogError(ex, "Result could not be saved for class {ClassId}.", classId);
         return Results.Problem("Result could not be saved.");
     }
 });

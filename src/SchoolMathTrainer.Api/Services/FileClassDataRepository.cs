@@ -173,7 +173,7 @@ internal sealed class FileClassDataRepository : IClassDataRepository
             }
 
             var result = progressService.CreateStudentAccount(request.DisplayName.Trim(), loginCode);
-            _logger.LogInformation("Student account created for class {ClassId}, student {StudentId}. Temporary credential value was not logged.", classId, result.Account.StudentId);
+            _logger.LogInformation("Student account created for class {ClassId}. Temporary credential value was not logged.", classId);
             return new TeacherStudentChangeResponse(
                 true,
                 $"Účet byl vytvořen. LoginCode: {result.Account.LoginCode}, dočasný PIN: {result.TemporaryPin}",
@@ -196,27 +196,25 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         var beforeAccount = progressService.GetStudentAccounts()
             .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
         _logger.LogInformation(
-            "Student credential reset requested for class {ClassId}, student {StudentId}. AccountFound={AccountFound}.",
+            "Student credential reset requested for class {ClassId}. AccountFound={AccountFound}.",
             classId,
-            studentId,
             beforeAccount is not null);
         var result = progressService.ResetStudentPin(studentId);
         if (result is null)
         {
-            _logger.LogWarning("Student credential reset failed because student was not found. Class {ClassId}, student {StudentId}.", classId, studentId);
+            _logger.LogWarning("Student credential reset failed because student was not found. Class {ClassId}.", classId);
             return new TeacherStudentChangeResponse(false, "Žák nebyl nalezen. PIN nebyl resetován.", null);
         }
 
         var persistedAccount = progressService.GetStudentAccounts()
             .FirstOrDefault(item => string.Equals(item.StudentId, studentId, StringComparison.OrdinalIgnoreCase));
         _logger.LogInformation(
-            "Student credential reset persisted for class {ClassId}, student {StudentId}. AccountFound={AccountFound}, requiresCredentialChange={RequiresCredentialChange}, temporaryCredentialPending={TemporaryCredentialPending}.",
+            "Student credential reset persisted for class {ClassId}. AccountFound={AccountFound}, requiresCredentialChange={RequiresCredentialChange}, temporaryCredentialPending={TemporaryCredentialPending}.",
             classId,
-            studentId,
             persistedAccount is not null,
             persistedAccount?.MustChangePin ?? result.Account.MustChangePin,
             persistedAccount?.TemporaryPinPending ?? result.Account.TemporaryPinPending);
-        _logger.LogInformation("Student credential reset completed for class {ClassId}, student {StudentId}. Temporary credential value was not logged.", classId, studentId);
+        _logger.LogInformation("Student credential reset completed for class {ClassId}. Temporary credential value was not logged.", classId);
         return new TeacherStudentChangeResponse(
             true,
             $"PIN byl resetován. Nový dočasný PIN: {result.TemporaryPin}",
@@ -257,11 +255,10 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         var classRoot = ResolveClassRoot(classId);
         var progressService = CreateProgressService(classRoot);
         var trimmedLoginCode = request.LoginCode?.Trim() ?? string.Empty;
-        var trimmedStudentId = request.StudentId?.Trim() ?? string.Empty;
         _logger.LogInformation(
-            "Student login request received for class {ClassId}. ConfiguredStudentId={RequestStudentId}.",
+            "Student login request received for class {ClassId}. HasConfiguredStudent={HasConfiguredStudent}.",
             classId,
-            string.IsNullOrWhiteSpace(trimmedStudentId) ? "<missing>" : trimmedStudentId);
+            !string.IsNullOrWhiteSpace(request.StudentId));
         if (!string.IsNullOrWhiteSpace(request.StudentId))
         {
             ValidateSegment(request.StudentId, nameof(request.StudentId));
@@ -269,19 +266,19 @@ internal sealed class FileClassDataRepository : IClassDataRepository
                 .FirstOrDefault(item => item.IsActive &&
                     string.Equals(item.StudentId, request.StudentId.Trim(), StringComparison.OrdinalIgnoreCase));
             _logger.LogInformation(
-                "Student login configured account lookup for class {ClassId}, student {StudentId}. ConfiguredAccountFound={ConfiguredAccountFound}.",
+                "Student login account lookup completed for class {ClassId}. AccountFound={AccountFound}, IsActive={IsActive}.",
                 classId,
-                trimmedStudentId,
-                configuredAccount is not null);
+                configuredAccount is not null,
+                configuredAccount?.IsActive ?? false);
             if (configuredAccount is null)
             {
-                _logger.LogWarning("Student login rejected because configured student was not found. Class {ClassId}, student {StudentId}.", classId, request.StudentId);
+                _logger.LogWarning("Student login rejected because configured account was not found. Class {ClassId}.", classId);
                 return StudentLoginResult.StudentConfigurationMismatch("Soubor od paní učitelky pro tohoto žáka už není platný. Načti prosím nový soubor.");
             }
 
             if (!string.Equals(configuredAccount.LoginCode, trimmedLoginCode, StringComparison.OrdinalIgnoreCase))
             {
-                _logger.LogWarning("Student login rejected because supplied credentials do not match configured student {StudentId}. Class {ClassId}.", request.StudentId, classId);
+                _logger.LogWarning("Student login rejected because supplied credentials do not match configured account. Class {ClassId}.", classId);
                 return StudentLoginResult.StudentConfigurationMismatch("Zadaný přihlašovací kód patří jinému žákovi než soubor od paní učitelky. Načti správný soubor pro tohoto žáka.");
             }
         }
@@ -291,13 +288,11 @@ internal sealed class FileClassDataRepository : IClassDataRepository
             request.Pin ?? string.Empty,
             request.NewPin ?? string.Empty);
         _logger.LogInformation(
-            "Student login result for class {ClassId}. RequestStudentId={RequestStudentId}, success={Success}, requiresCredentialChange={RequiresCredentialChange}, requiresStudentConfigurationReload={RequiresStudentConfigurationReload}, resultStudentId={ResultStudentId}.",
+            "Student login result for class {ClassId}. success={Success}, requiresCredentialChange={RequiresCredentialChange}, requiresStudentConfigurationReload={RequiresStudentConfigurationReload}.",
             classId,
-            string.IsNullOrWhiteSpace(trimmedStudentId) ? "<missing>" : trimmedStudentId,
             loginResult.Success,
             loginResult.RequiresPinChange,
-            loginResult.RequiresStudentConfigurationReload,
-            string.IsNullOrWhiteSpace(loginResult.StudentId) ? "<missing>" : loginResult.StudentId);
+            loginResult.RequiresStudentConfigurationReload);
         return loginResult;
     }
 
@@ -418,7 +413,7 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            _logger.LogWarning(ex, "Student summary could not be read at {SummaryPath}.", summaryPath);
+            _logger.LogWarning(ex, "Student summary could not be read.");
             return null;
         }
     }
@@ -461,7 +456,7 @@ internal sealed class FileClassDataRepository : IClassDataRepository
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DirectoryNotFoundException)
         {
-            _logger.LogWarning(ex, "Session file listing failed for directory {DirectoryPath}.", directoryPath);
+            _logger.LogWarning(ex, "Session file listing failed.");
             return sessions;
         }
 
@@ -479,7 +474,7 @@ internal sealed class FileClassDataRepository : IClassDataRepository
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
-                _logger.LogWarning(ex, "Unreadable session file skipped: {SessionFile}.", file);
+                _logger.LogWarning(ex, "Unreadable session file skipped.");
                 // Skip unreadable session files; one corrupted file must not hide valid class data.
             }
         }
