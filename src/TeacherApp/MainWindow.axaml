@@ -143,7 +143,8 @@
     </Style>
   </Window.Styles>
 
-  <Grid Margin="20"
+  <Grid x:Name="TeacherAppLayoutGrid"
+        Margin="20"
         ColumnDefinitions="320,*,440"
         ColumnSpacing="18">
     <Border Grid.Column="0"

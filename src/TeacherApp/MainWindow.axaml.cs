@@ -12,6 +12,10 @@ namespace TeacherApp;
 
 public partial class MainWindow : Window
 {
+    private static readonly GridLength TeacherMainColumnWidth = new(1, GridUnitType.Star);
+    private static readonly GridLength TeacherDetailColumnWidth = new(440, GridUnitType.Pixel);
+    private static readonly GridLength AdminMainColumnWidth = new(0.8, GridUnitType.Star);
+    private static readonly GridLength AdminDetailColumnWidth = new(1.2, GridUnitType.Star);
     private readonly TeacherDataFolderValidator _dataFolderValidator = new();
     private readonly TeacherStudentAccountReader _studentAccountReader = new();
     private readonly TeacherStudentResultsReader _studentResultsReader = new();
@@ -123,6 +127,7 @@ public partial class MainWindow : Window
         TeacherAdminMainArea.IsVisible = teacherActionsEnabled;
         TeacherAdminDetailArea.IsVisible = teacherActionsEnabled;
         AdminTeachersPanel.IsVisible = adminActionsEnabled;
+        ApplyRoleLayout(adminActionsEnabled);
 
         var studentActionEnabled = teacherActionsEnabled && StudentListBox.SelectedItem is StudentListItem &&
             !string.IsNullOrWhiteSpace(_selectedStudentId);
@@ -142,6 +147,12 @@ public partial class MainWindow : Window
         AdminDeactivateTeacherButton.IsEnabled = adminTeacherSelected;
         AdminDeleteTeacherButton.IsEnabled = adminTeacherSelected;
         UpdateStatusCardVisibility();
+    }
+
+    private void ApplyRoleLayout(bool isAdmin)
+    {
+        TeacherAppLayoutGrid.ColumnDefinitions[1].Width = isAdmin ? AdminMainColumnWidth : TeacherMainColumnWidth;
+        TeacherAppLayoutGrid.ColumnDefinitions[2].Width = isAdmin ? AdminDetailColumnWidth : TeacherDetailColumnWidth;
     }
 
     private void ClearTeacherData(string message)
