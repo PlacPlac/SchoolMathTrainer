@@ -33,6 +33,8 @@ Před přihlášením nejsou vidět:
 
 Po úspěšné autentizaci učitele se interní učitelská administrace zobrazí a funguje stejně jako dříve: hlavní akce, seznam žáků, vytvoření žáka, třídní přehled, detail žáka, reset PINu, generování `.smtcfg`, výsledky žáka a aktivity třídy. Po odhlášení nebo ztrátě teacher session se interní panely opět skryjí a zobrazená data se vyčistí podle existující logiky aplikace.
 
+Po přihlášení s rolí `Admin` je navíc viditelná sekce `Správa učitelů`. Běžný `Teacher` tuto sekci nevidí. Admin může v UI načíst seznam učitelů, přidat učitele, upravit zobrazované jméno, změnit roli, resetovat heslo, aktivovat, deaktivovat a odstranit učitele. Admin UI používá server-side chráněné `/api/admin/*` endpointy; hesla se neposílají v příkazech, nelogují se a neukládají se do dokumentace. Odstranění učitele nemaže audit ani žákovská data a server nedovolí odstranit posledního `Admin`, posledního aktivního `Admin` ani právě přihlášeného administrátora.
+
 ## StudentApp UI
 
 `StudentApp` má aktuálně modernizované dětské WPF rozhraní. Vizuálně používá sytější, ale stále přátelskou pastelovou paletu, kompaktní horní hlavičku `Školní počítání` a přehledné karty bez starých velkých gradientových bloků.
@@ -197,6 +199,7 @@ Teacher autentizace:
 - poslední aktivní `Admin` nesmí být deaktivován ani převeden na `Teacher`,
 - učitelský účet lze odstranit jen server-side chráněným admin endpointem,
 - nelze odstranit posledního `Admin` ani právě přihlášeného administrátora,
+- `TeacherApp` zobrazuje sekci `Správa učitelů` jen přihlášenému `Admin`; běžný `Teacher` ji nevidí,
 - `TeacherApp` před úspěšným přihlášením nezobrazuje interní administraci a nenačítá data třídy,
 - po odhlášení nebo ztrátě session se interní panely skryjí a zobrazená data se vyčistí,
 - neukládá token do `.smtcfg`,

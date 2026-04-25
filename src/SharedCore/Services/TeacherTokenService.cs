@@ -44,7 +44,7 @@ public sealed class TeacherTokenService
             SaveSessionsUnsafe(sessions);
         }
 
-        return new TeacherLoginResponse(token, expiresUtc);
+        return new TeacherLoginResponse(token, expiresUtc, TeacherRoles.Normalize(account.Role));
     }
 
     public TeacherTokenValidationResult ValidateToken(string token)

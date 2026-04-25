@@ -15,6 +15,8 @@ Aktuální řešení má tyto hlavní části:
 
 Po úspěšné autentizaci učitele se zobrazí hlavní akce, seznam žáků, vytvoření nového žáka, třídní přehled, detail žáka, akce se žákem, výsledky žáka, poslední hry žáka a poslední aktivity třídy. Po odhlášení nebo ztrátě session se interní panely znovu skryjí a zobrazená data se vyčistí podle existující logiky aplikace.
 
+Po přihlášení s rolí `Admin` se navíc zobrazí sekce `Správa učitelů`. Běžný `Teacher` ji nevidí. Admin zde může přes server-side chráněné `/api/admin/*` endpointy načíst učitele, přidat účet, upravit zobrazované jméno, změnit roli, resetovat heslo, aktivovat, deaktivovat a odstranit učitele. Odstranění učitele nemaže audit ani žákovská data; posledního `Admin`, posledního aktivního `Admin` ani právě přihlášeného administrátora nelze odstranit.
+
 ## StudentApp
 
 `StudentApp` má modernizované dětské rozhraní s barevnější pastelovou paletou, kompaktní horní hlavičkou a přehlednými kartami. Před přihlášením zobrazuje, pro kterého žáka nebo žákovský soubor je načtená konfigurace, a tlačítko `Změnit žáka` je dostupné už na nepřihlášené obrazovce. Přihlašovací karta drží přehledné levé zarovnání textů, polí a hlavní akce.
@@ -167,7 +169,7 @@ Admin endpointy pro správu učitelů vyžadují platný Bearer token s rolí `A
 
 Admin může učitelský účet odstranit, ale odstranění je server-side chráněné: nelze odstranit posledního `Admin`, nelze odstranit právě přihlášeného administrátora a aktivní sessions odstraněného učitele se zneplatní. Odstranění nemaže audit, žákovská data ani `teacher-auth-settings.json`. Pro běžné vypnutí účtu je vhodnější deaktivace.
 
-První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být součástí příkazu:
+První admin účet se po deployi stále vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být součástí příkazu:
 
 ```powershell
 dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll create-teacher --username admin --display-name Admin --role Admin --data-root /var/lib/schoolmath/data

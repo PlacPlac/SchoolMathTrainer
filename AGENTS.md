@@ -26,6 +26,7 @@ Aktuální hlavní fakta:
 - poslední aktivní `Admin` nesmí být deaktivován ani převeden na `Teacher`,
 - učitelský účet lze odstranit jen přes admin endpoint; nelze odstranit posledního `Admin` ani právě přihlášeného administrátora,
 - `TeacherApp` před přihlášením učitele zobrazuje jen přihlašovací část a bezpečný stav; interní administrace, seznamy, výsledky a akce se žáky se zobrazí až po úspěšné autentizaci a po odhlášení nebo ztrátě session se znovu skryjí,
+- `TeacherApp` po přihlášení s rolí `Admin` zobrazuje sekci `Správa učitelů`; běžný `Teacher` ji nevidí,
 - studentský upload výsledků používá student session token,
 - `StudentApp` má modernizované dětské WPF UI s barevnější pastelovou paletou, kompaktní horní hlavičkou, viditelným načteným žákovským souborem před přihlášením, dostupným tlačítkem `Změnit žáka` před přihlášením a sekcemi `Vyber si procvičování` a `Výsledky`.
 
@@ -104,6 +105,7 @@ Teacher autentizace:
 - učitelská data se bez přihlášení nenačítají a interní panely `TeacherApp` se před přihlášením nezobrazují
 - admin endpointy `/api/admin/teachers*` vyžadují bearer token s rolí `Admin`
 - `DELETE /api/admin/teachers/{username}` nemaže audit ani žákovská data a pro běžné vypnutí účtu je vhodnější deaktivace
+- admin UI v `TeacherApp` používá server-side chráněné endpointy pro přidání, úpravu, změnu role, reset hesla, aktivaci, deaktivaci a odstranění učitele; hesla se nezapisují do příkazů ani dokumentace
 - první admin účet se vytváří přes `TeacherAdmin` CLI s `--role Admin`; heslo se zadává interaktivně a nesmí být v příkazu
 
 Student autentizace:

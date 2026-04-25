@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using SharedCore.Models;
 using SharedCore.Services;
 
@@ -14,6 +15,7 @@ public sealed class TeacherOnlineApiDataSource
     private readonly HttpClient _httpClient;
     private readonly string _classId;
     private string _teacherToken = string.Empty;
+    private string _teacherRole = TeacherRoles.Teacher;
 
     public TeacherOnlineApiDataSource(DataConnectionSettings settings)
     {
@@ -29,7 +31,10 @@ public sealed class TeacherOnlineApiDataSource
     }
 
     public bool IsAuthenticated => !string.IsNullOrWhiteSpace(_teacherToken);
+    public bool IsAdmin => IsAuthenticated && TeacherRoles.IsAdmin(_teacherRole);
+    public string TeacherRole => _teacherRole;
     public bool LastAuthorizationFailed { get; private set; }
+    public bool LastForbidden { get; private set; }
     public string LastErrorMessage { get; private set; } = string.Empty;
 
     public TeacherLoginClientResult LoginTeacher(string username, string password)
@@ -81,6 +86,7 @@ public sealed class TeacherOnlineApiDataSource
             }
 
             _teacherToken = login.Token;
+            _teacherRole = TeacherRoles.Normalize(login.Role);
             _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _teacherToken);
             var normalizedUsername = username.Trim();
             DiagnosticLogService.Log(LogName, "Teacher login completed successfully. Session data remains in memory only.");
@@ -89,7 +95,8 @@ public sealed class TeacherOnlineApiDataSource
                 "Přihlášení učitele proběhlo úspěšně.",
                 login.Token,
                 login.ExpiresUtc,
-                normalizedUsername);
+                normalizedUsername,
+                _teacherRole);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
         {
@@ -109,6 +116,7 @@ public sealed class TeacherOnlineApiDataSource
     public void ClearAuthentication()
     {
         _teacherToken = string.Empty;
+        _teacherRole = TeacherRoles.Teacher;
         _httpClient.DefaultRequestHeaders.Authorization = null;
         ClearLastError();
     }
@@ -213,6 +221,112 @@ public sealed class TeacherOnlineApiDataSource
             () => _httpClient.DeleteAsync(
                 $"api/students/{Uri.EscapeDataString(_classId)}/{Uri.EscapeDataString(studentId)}"));
         return (result.Success, result.Message, result.ResultsDeleted);
+    }
+
+    public async Task<AdminTeacherListResult> GetAdminTeachersAsync()
+    {
+        ClearLastError();
+        try
+        {
+            using var response = await _httpClient.GetAsync("api/admin/teachers");
+            if (HandleAuthorizationFailure(response.StatusCode))
+            {
+                return new AdminTeacherListResult(false, LastErrorMessage, []);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                DiagnosticLogService.Log(LogName, $"Admin teacher list request failed with HTTP {(int)response.StatusCode}.");
+                return new AdminTeacherListResult(false, "Seznam učitelů se nepodařilo načíst.", []);
+            }
+
+            var teachers = await response.Content.ReadFromJsonAsync<List<AdminTeacherListItem>>();
+            return new AdminTeacherListResult(true, "Seznam učitelů byl načten.", teachers ?? []);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
+        {
+            DiagnosticLogService.LogError(LogName, "Admin teacher list request failed", ex);
+            return new AdminTeacherListResult(false, "Seznam učitelů se nepodařilo načíst.", []);
+        }
+    }
+
+    public Task<AdminTeacherOperationResult> CreateAdminTeacherAsync(string username, string displayName, string password, string role) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.PostAsJsonAsync(
+                "api/admin/teachers",
+                new AdminCreateTeacherRequest(username.Trim(), displayName.Trim(), password, role)),
+            "Učitelský účet byl vytvořen.",
+            "Učitelský účet se nepodařilo vytvořit.");
+
+    public Task<AdminTeacherOperationResult> UpdateAdminTeacherAsync(string username, string displayName, string role) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.PutAsJsonAsync(
+                $"api/admin/teachers/{Uri.EscapeDataString(username)}",
+                new AdminUpdateTeacherRequest(displayName.Trim(), role)),
+            "Učitelský účet byl upraven.",
+            "Učitelský účet se nepodařilo upravit.");
+
+    public Task<AdminTeacherOperationResult> ResetAdminTeacherPasswordAsync(string username, string password) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.PostAsJsonAsync(
+                $"api/admin/teachers/{Uri.EscapeDataString(username)}/reset-password",
+                new AdminResetTeacherPasswordRequest(password)),
+            "Heslo učitele bylo resetováno.",
+            "Heslo učitele se nepodařilo resetovat.");
+
+    public Task<AdminTeacherOperationResult> DeactivateAdminTeacherAsync(string username) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.PostAsync($"api/admin/teachers/{Uri.EscapeDataString(username)}/deactivate", null),
+            "Učitel byl deaktivován.",
+            "Učitele se nepodařilo deaktivovat.");
+
+    public Task<AdminTeacherOperationResult> ActivateAdminTeacherAsync(string username) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.PostAsync($"api/admin/teachers/{Uri.EscapeDataString(username)}/activate", null),
+            "Učitel byl aktivován.",
+            "Učitele se nepodařilo aktivovat.");
+
+    public Task<AdminTeacherOperationResult> DeleteAdminTeacherAsync(string username) =>
+        SendAdminTeacherRequestAsync(
+            () => _httpClient.DeleteAsync($"api/admin/teachers/{Uri.EscapeDataString(username)}"),
+            "Učitelský účet byl odstraněn.",
+            "Učitelský účet se nepodařilo odstranit.");
+
+    private async Task<AdminTeacherOperationResult> SendAdminTeacherRequestAsync(
+        Func<Task<HttpResponseMessage>> requestFactory,
+        string successMessage,
+        string fallbackErrorMessage)
+    {
+        ClearLastError();
+        try
+        {
+            using var response = await requestFactory();
+            if (HandleAuthorizationFailure(response.StatusCode))
+            {
+                return new AdminTeacherOperationResult(false, LastErrorMessage);
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            var serverMessage = ReadApiMessage(body);
+            if (!response.IsSuccessStatusCode)
+            {
+                DiagnosticLogService.Log(LogName, $"Admin teacher request failed with HTTP {(int)response.StatusCode}.");
+                return new AdminTeacherOperationResult(
+                    false,
+                    string.IsNullOrWhiteSpace(serverMessage) ? fallbackErrorMessage : serverMessage);
+            }
+
+            var teacher = TryReadAdminTeacher(body);
+            return new AdminTeacherOperationResult(
+                true,
+                string.IsNullOrWhiteSpace(serverMessage) ? successMessage : serverMessage,
+                teacher);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
+        {
+            DiagnosticLogService.LogError(LogName, "Admin teacher request failed", ex);
+            return new AdminTeacherOperationResult(false, fallbackErrorMessage);
+        }
     }
 
     public ClassOverviewReadResult ReadClassOverview()
@@ -424,9 +538,56 @@ public sealed class TeacherOnlineApiDataSource
         }
     }
 
+    private static string ReadApiMessage(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<ApiMessageResponse>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })?.Message ?? string.Empty;
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static AdminTeacherListItem? TryReadAdminTeacher(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<AdminTeacherListItem>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private bool HandleAuthorizationFailure(HttpStatusCode statusCode)
     {
-        if (!IsUnauthorized(statusCode))
+        if (statusCode == HttpStatusCode.Forbidden)
+        {
+            LastForbidden = true;
+            LastErrorMessage = "Nemáte oprávnění ke správě učitelů.";
+            _teacherRole = TeacherRoles.Teacher;
+            DiagnosticLogService.Log(LogName, $"Teacher authorization failed with HTTP {(int)statusCode} for class '{_classId}'.");
+            return true;
+        }
+
+        if (statusCode != HttpStatusCode.Unauthorized)
         {
             return false;
         }
@@ -438,11 +599,12 @@ public sealed class TeacherOnlineApiDataSource
     }
 
     private static bool IsUnauthorized(HttpStatusCode statusCode) =>
-        statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+        statusCode == HttpStatusCode.Unauthorized;
 
     private void ClearLastError()
     {
         LastAuthorizationFailed = false;
+        LastForbidden = false;
         LastErrorMessage = string.Empty;
     }
 

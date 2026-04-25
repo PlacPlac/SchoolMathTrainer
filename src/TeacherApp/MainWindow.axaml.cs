@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using SharedCore.Models;
 using SharedCore.Services;
@@ -26,6 +27,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<StudentActivityListItem> _recentActivities = [];
     private readonly ObservableCollection<StudentActivityListItem> _studentRecentActivities = [];
     private readonly ObservableCollection<ClassOverviewStudentItem> _classOverviewStudents = [];
+    private readonly ObservableCollection<AdminTeacherListItemView> _adminTeachers = [];
+    private static readonly string[] TeacherRoleOptions = [TeacherRoles.Teacher, TeacherRoles.Admin];
     private TeacherServerSettings _serverSettings = TeacherServerSettings.CreateDefault();
     private string _currentDataFolderPath = string.Empty;
     private string _selectedStudentId = string.Empty;
@@ -38,6 +41,9 @@ public partial class MainWindow : Window
         RecentActivitiesListBox.ItemsSource = _recentActivities;
         StudentRecentActivitiesListBox.ItemsSource = _studentRecentActivities;
         ClassOverviewStudentsListBox.ItemsSource = _classOverviewStudents;
+        AdminTeachersListBox.ItemsSource = _adminTeachers;
+        AdminTeacherRoleComboBox.ItemsSource = TeacherRoleOptions;
+        AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
         UpdateEmptyStates();
         _onlineApiDataSource = new TeacherOnlineApiDataSource(_configuration.DataConnection);
         _serverSettings = _serverSettingsService.Load();
@@ -107,18 +113,29 @@ public partial class MainWindow : Window
         TeacherPasswordTextBox.IsEnabled = !isAuthenticated;
 
         var teacherActionsEnabled = !IsOnlineApiMode || isAuthenticated;
+        var adminActionsEnabled = IsOnlineApiMode && isAuthenticated && _onlineApiDataSource.IsAdmin;
         TeacherActionsPanel.IsVisible = teacherActionsEnabled;
         TeacherAdminMainArea.IsVisible = teacherActionsEnabled;
         TeacherAdminDetailArea.IsVisible = teacherActionsEnabled;
+        AdminTeachersPanel.IsVisible = adminActionsEnabled;
 
         var studentActionEnabled = teacherActionsEnabled && StudentListBox.SelectedItem is StudentListItem &&
             !string.IsNullOrWhiteSpace(_selectedStudentId);
+        var adminTeacherSelected = adminActionsEnabled && AdminTeachersListBox.SelectedItem is AdminTeacherListItemView;
         RefreshDataButton.IsEnabled = teacherActionsEnabled;
         LoadFromServerButton.IsEnabled = teacherActionsEnabled;
         CreateStudentButton.IsEnabled = teacherActionsEnabled;
         ResetPinButton.IsEnabled = studentActionEnabled;
         DeleteStudentButton.IsEnabled = studentActionEnabled;
         GenerateStudentConfigButton.IsEnabled = studentActionEnabled;
+        AdminRefreshTeachersButton.IsEnabled = adminActionsEnabled;
+        AdminAddTeacherButton.IsEnabled = adminActionsEnabled;
+        AdminUpdateDisplayNameButton.IsEnabled = adminTeacherSelected;
+        AdminChangeRoleButton.IsEnabled = adminTeacherSelected;
+        AdminResetTeacherPasswordButton.IsEnabled = adminTeacherSelected;
+        AdminActivateTeacherButton.IsEnabled = adminTeacherSelected;
+        AdminDeactivateTeacherButton.IsEnabled = adminTeacherSelected;
+        AdminDeleteTeacherButton.IsEnabled = adminTeacherSelected;
         UpdateStatusCardVisibility();
     }
 
@@ -128,6 +145,7 @@ public partial class MainWindow : Window
         _recentActivities.Clear();
         _studentRecentActivities.Clear();
         _classOverviewStudents.Clear();
+        ClearAdminTeacherData();
         _currentDataFolderPath = string.Empty;
         _selectedStudentId = string.Empty;
         _isRemoteReadOnlyData = false;
@@ -181,7 +199,7 @@ public partial class MainWindow : Window
         AppendServerSettingsStatus();
     }
 
-    private void OnTeacherLoginClick(object? sender, RoutedEventArgs e)
+    private async void OnTeacherLoginClick(object? sender, RoutedEventArgs e)
     {
         if (!IsOnlineApiMode)
         {
@@ -209,8 +227,13 @@ public partial class MainWindow : Window
 
         TeacherLoginStatusTextBlock.Text = string.IsNullOrWhiteSpace(login.Username)
             ? "Přihlášení učitele proběhlo úspěšně."
-            : $"Přihlášeno: {login.Username}.";
+            : $"Přihlášeno: {login.Username}. Role: {TeacherRoles.Normalize(login.Role)}.";
         UpdateTeacherAuthUi();
+        if (_onlineApiDataSource.IsAdmin)
+        {
+            await LoadAdminTeachersAsync();
+        }
+
         LoadStudentsFromOnlineApi();
     }
 
@@ -222,6 +245,219 @@ public partial class MainWindow : Window
         }
 
         ApplyTeacherLoggedOutState("Učitel byl odhlášen. Pro práci s daty se znovu přihlaste.");
+    }
+
+    private async void OnAdminRefreshTeachersClick(object? sender, RoutedEventArgs e)
+    {
+        await LoadAdminTeachersAsync();
+    }
+
+    private async void OnAdminAddTeacherClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess())
+        {
+            return;
+        }
+
+        var input = await ShowCreateTeacherDialogAsync();
+        if (input is null)
+        {
+            SetAdminTeacherStatus("Vytvoření učitele bylo zrušeno.");
+            return;
+        }
+
+        var result = await _onlineApiDataSource.CreateAdminTeacherAsync(
+            input.Username,
+            input.DisplayName,
+            input.Password,
+            input.Role);
+        await ApplyAdminTeacherOperationResultAsync(result, input.Username);
+    }
+
+    private async void OnAdminUpdateTeacherClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess() || AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            SetAdminTeacherStatus("Nejdřív vyberte učitele.");
+            return;
+        }
+
+        var role = AdminTeacherRoleComboBox.SelectedItem?.ToString() ?? selectedTeacher.Role;
+        var result = await _onlineApiDataSource.UpdateAdminTeacherAsync(
+            selectedTeacher.Username,
+            AdminTeacherDisplayNameTextBox.Text ?? string.Empty,
+            role);
+        await ApplyAdminTeacherOperationResultAsync(result, selectedTeacher.Username);
+    }
+
+    private async void OnAdminResetTeacherPasswordClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess() || AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            SetAdminTeacherStatus("Nejdřív vyberte učitele.");
+            return;
+        }
+
+        var password = await ShowPasswordResetDialogAsync(selectedTeacher.Username);
+        if (password is null)
+        {
+            SetAdminTeacherStatus("Reset hesla byl zrušen.");
+            return;
+        }
+
+        var result = await _onlineApiDataSource.ResetAdminTeacherPasswordAsync(selectedTeacher.Username, password);
+        await ApplyAdminTeacherOperationResultAsync(result, selectedTeacher.Username);
+    }
+
+    private async void OnAdminDeactivateTeacherClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess() || AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            SetAdminTeacherStatus("Nejdřív vyberte učitele.");
+            return;
+        }
+
+        var result = await _onlineApiDataSource.DeactivateAdminTeacherAsync(selectedTeacher.Username);
+        await ApplyAdminTeacherOperationResultAsync(result, selectedTeacher.Username);
+    }
+
+    private async void OnAdminActivateTeacherClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess() || AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            SetAdminTeacherStatus("Nejdřív vyberte učitele.");
+            return;
+        }
+
+        var result = await _onlineApiDataSource.ActivateAdminTeacherAsync(selectedTeacher.Username);
+        await ApplyAdminTeacherOperationResultAsync(result, selectedTeacher.Username);
+    }
+
+    private async void OnAdminDeleteTeacherClick(object? sender, RoutedEventArgs e)
+    {
+        if (!EnsureAdminAccess() || AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            SetAdminTeacherStatus("Nejdřív vyberte učitele.");
+            return;
+        }
+
+        var confirmed = await ShowDeleteTeacherConfirmationAsync(selectedTeacher.Username);
+        if (!confirmed)
+        {
+            SetAdminTeacherStatus("Odstranění učitele bylo zrušeno.");
+            return;
+        }
+
+        var result = await _onlineApiDataSource.DeleteAdminTeacherAsync(selectedTeacher.Username);
+        await ApplyAdminTeacherOperationResultAsync(result, string.Empty);
+    }
+
+    private void OnAdminTeacherSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
+        {
+            AdminTeacherDisplayNameTextBox.Text = string.Empty;
+            AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
+            RefreshTeacherUiState();
+            return;
+        }
+
+        AdminTeacherDisplayNameTextBox.Text = selectedTeacher.DisplayName;
+        AdminTeacherRoleComboBox.SelectedItem = selectedTeacher.Role;
+        RefreshTeacherUiState();
+    }
+
+    private bool EnsureAdminAccess()
+    {
+        if (!EnsureTeacherAuthenticated())
+        {
+            return false;
+        }
+
+        if (_onlineApiDataSource.IsAdmin)
+        {
+            return true;
+        }
+
+        ClearAdminTeacherData();
+        SetAdminTeacherStatus("Správa učitelů je dostupná jen pro administrátora.");
+        UpdateTeacherAuthUi();
+        return false;
+    }
+
+    private async Task LoadAdminTeachersAsync(string usernameToSelect = "")
+    {
+        if (!EnsureAdminAccess())
+        {
+            return;
+        }
+
+        SetAdminTeacherStatus("Načítám seznam učitelů...");
+        var result = await _onlineApiDataSource.GetAdminTeachersAsync();
+        if (!result.Success)
+        {
+            SetAdminTeacherStatus(result.Message);
+            HandleOnlineAuthorizationFailureIfNeeded();
+            if (_onlineApiDataSource.LastForbidden)
+            {
+                ClearAdminTeacherData();
+                UpdateTeacherAuthUi();
+            }
+
+            return;
+        }
+
+        _adminTeachers.Clear();
+        foreach (var teacher in result.Teachers.OrderBy(item => item.Username, StringComparer.CurrentCultureIgnoreCase))
+        {
+            _adminTeachers.Add(new AdminTeacherListItemView(teacher));
+        }
+
+        if (!string.IsNullOrWhiteSpace(usernameToSelect))
+        {
+            AdminTeachersListBox.SelectedItem = _adminTeachers.FirstOrDefault(teacher =>
+                string.Equals(teacher.Username, usernameToSelect, StringComparison.OrdinalIgnoreCase));
+        }
+
+        SetAdminTeacherStatus(result.Message);
+        RefreshTeacherUiState();
+    }
+
+    private async Task ApplyAdminTeacherOperationResultAsync(AdminTeacherOperationResult result, string usernameToSelect)
+    {
+        SetAdminTeacherStatus(result.Message);
+        if (!result.Success)
+        {
+            HandleOnlineAuthorizationFailureIfNeeded();
+            if (_onlineApiDataSource.LastForbidden)
+            {
+                ClearAdminTeacherData();
+                UpdateTeacherAuthUi();
+            }
+
+            return;
+        }
+
+        await LoadAdminTeachersAsync(usernameToSelect);
+        if (!string.IsNullOrWhiteSpace(result.Message))
+        {
+            SetAdminTeacherStatus(result.Message);
+        }
+    }
+
+    private void ClearAdminTeacherData()
+    {
+        _adminTeachers.Clear();
+        AdminTeachersListBox.SelectedItem = null;
+        AdminTeacherDisplayNameTextBox.Text = string.Empty;
+        AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
+        AdminTeacherStatusTextBlock.Text = string.Empty;
+    }
+
+    private void SetAdminTeacherStatus(string message)
+    {
+        AdminTeacherStatusTextBlock.Text = message;
+        UpdateStatusCardVisibility();
     }
 
     private async void OnLoadFromServerClick(object? sender, RoutedEventArgs e)
@@ -585,6 +821,178 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
     }
 
+    private async Task<AdminTeacherCreateInput?> ShowCreateTeacherDialogAsync()
+    {
+        var usernameBox = CreateDialogTextBox("Uživatelské jméno");
+        var displayNameBox = CreateDialogTextBox("Zobrazované jméno");
+        var passwordBox = CreateDialogTextBox("Heslo");
+        passwordBox.PasswordChar = '*';
+        var roleBox = CreateDialogRoleComboBox();
+
+        var dialog = CreateAdminDialogWindow("Přidat učitele");
+        var createButton = CreateDialogButton("Vytvořit", "primary");
+        var cancelButton = CreateDialogButton("Zrušit", "secondary");
+        createButton.Click += (_, _) =>
+        {
+            var input = new AdminTeacherCreateInput(
+                usernameBox.Text ?? string.Empty,
+                displayNameBox.Text ?? string.Empty,
+                passwordBox.Text ?? string.Empty,
+                roleBox.SelectedItem?.ToString() ?? TeacherRoles.Teacher);
+            passwordBox.Text = string.Empty;
+            dialog.Close(input);
+        };
+        cancelButton.Click += (_, _) =>
+        {
+            passwordBox.Text = string.Empty;
+            dialog.Close(null);
+        };
+
+        dialog.Content = CreateDialogContent(
+            "Nový učitelský účet",
+            "Heslo se odešle jen na server a po zavření dialogu se neuchovává v UI.",
+            [usernameBox, displayNameBox, passwordBox, roleBox],
+            [cancelButton, createButton]);
+        return await dialog.ShowDialog<AdminTeacherCreateInput?>(this);
+    }
+
+    private async Task<string?> ShowPasswordResetDialogAsync(string username)
+    {
+        var passwordBox = CreateDialogTextBox("Nové heslo");
+        passwordBox.PasswordChar = '*';
+        var dialog = CreateAdminDialogWindow("Reset hesla");
+        var saveButton = CreateDialogButton("Resetovat", "primary");
+        var cancelButton = CreateDialogButton("Zrušit", "secondary");
+        saveButton.Click += (_, _) =>
+        {
+            var password = passwordBox.Text ?? string.Empty;
+            passwordBox.Text = string.Empty;
+            dialog.Close(password);
+        };
+        cancelButton.Click += (_, _) =>
+        {
+            passwordBox.Text = string.Empty;
+            dialog.Close(null);
+        };
+
+        dialog.Content = CreateDialogContent(
+            "Reset hesla",
+            $"Zadejte nové heslo pro učitele {username}. Heslo se nezapisuje do logu ani do souboru.",
+            [passwordBox],
+            [cancelButton, saveButton]);
+        return await dialog.ShowDialog<string?>(this);
+    }
+
+    private async Task<bool> ShowDeleteTeacherConfirmationAsync(string username)
+    {
+        var dialog = CreateAdminDialogWindow("Odstranit učitele");
+        var deleteButton = CreateDialogButton("Odstranit", "danger");
+        var cancelButton = CreateDialogButton("Zrušit", "secondary");
+        deleteButton.Click += (_, _) => dialog.Close(true);
+        cancelButton.Click += (_, _) => dialog.Close(false);
+        dialog.Content = CreateDialogContent(
+            "Odstranit učitele",
+            $"Opravdu odstranit učitelský účet {username}? Žákovská data ani audit se tím nemažou. Server nedovolí odstranit posledního administrátora ani právě přihlášený účet.",
+            [],
+            [cancelButton, deleteButton]);
+        return await dialog.ShowDialog<bool>(this);
+    }
+
+    private static Window CreateAdminDialogWindow(string title) =>
+        new()
+        {
+            Title = title,
+            Width = 460,
+            Height = 360,
+            MinWidth = 420,
+            MinHeight = 260,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#080D18"))
+        };
+
+    private static StackPanel CreateDialogContent(
+        string title,
+        string description,
+        IReadOnlyList<Control> fields,
+        IReadOnlyList<Button> buttons)
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Avalonia.Thickness(18),
+            Spacing = 12
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = title,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FFFFFF")),
+            FontSize = 18,
+            FontWeight = Avalonia.Media.FontWeight.SemiBold,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = description,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#C9D5E8")),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        });
+        foreach (var field in fields)
+        {
+            panel.Children.Add(field);
+        }
+
+        var buttonPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 10
+        };
+        foreach (var button in buttons)
+        {
+            buttonPanel.Children.Add(button);
+        }
+
+        panel.Children.Add(buttonPanel);
+        return panel;
+    }
+
+    private static TextBox CreateDialogTextBox(string watermark) =>
+        new()
+        {
+            Watermark = watermark,
+            Height = 40,
+            Padding = new Avalonia.Thickness(12, 8),
+            Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#0A1220")),
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FFFFFF")),
+            BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#425A7D"))
+        };
+
+    private static ComboBox CreateDialogRoleComboBox() =>
+        new()
+        {
+            ItemsSource = TeacherRoleOptions,
+            SelectedItem = TeacherRoles.Teacher,
+            Height = 40,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#0A1220")),
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FFFFFF")),
+            BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#425A7D"))
+        };
+
+    private static Button CreateDialogButton(string text, string className)
+    {
+        var button = new Button
+        {
+            Content = text,
+            MinWidth = 110,
+            Height = 40,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FFFFFF"))
+        };
+        button.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(className == "danger" ? "#8B1E1E" : className == "primary" ? "#2563EB" : "#18263D"));
+        button.BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(className == "danger" ? "#EF4444" : className == "primary" ? "#60A5FA" : "#425A7D"));
+        button.Classes.Add(className);
+        return button;
+    }
+
     private void OnDeleteStudentClick(object? sender, RoutedEventArgs e)
     {
         StudentActionStatusBorder.IsVisible = true;
@@ -945,5 +1353,14 @@ public partial class MainWindow : Window
         StudentActionStatusBorder.IsVisible =
             !string.IsNullOrWhiteSpace(ResetPinStatusTextBlock.Text) ||
             !string.IsNullOrWhiteSpace(StudentConfigStatusTextBlock.Text);
+        AdminTeacherStatusBorder.IsVisible =
+            AdminTeachersPanel.IsVisible &&
+            !string.IsNullOrWhiteSpace(AdminTeacherStatusTextBlock.Text);
     }
+
+    private sealed record AdminTeacherCreateInput(
+        string Username,
+        string DisplayName,
+        string Password,
+        string Role);
 }

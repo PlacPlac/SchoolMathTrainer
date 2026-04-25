@@ -114,6 +114,14 @@
       <Setter Property="Background" Value="#101A2D" />
       <Setter Property="BorderBrush" Value="#2B3B58" />
     </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="Height" Value="40" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="Background" Value="#0A1220" />
+      <Setter Property="Foreground" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#425A7D" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
     <Style Selector="ListBox">
       <Setter Property="Background" Value="#0A1220" />
       <Setter Property="Foreground" Value="#E8EEF8" />
@@ -467,6 +475,137 @@
                   Grid.Column="2"
                   VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="16">
+        <Border x:Name="AdminTeachersPanel"
+                Classes="card"
+                IsVisible="False">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="10">
+              <StackPanel Grid.Column="0"
+                          Spacing="4">
+                <TextBlock Text="Správa učitelů"
+                           Classes="sectionTitle" />
+                <TextBlock Text="Viditelné jen pro administrátora."
+                           Classes="subtle"
+                           TextWrapping="Wrap" />
+              </StackPanel>
+              <Button x:Name="AdminRefreshTeachersButton"
+                      Grid.Column="1"
+                      Classes="secondary"
+                      MinWidth="96"
+                      Content="Obnovit"
+                      Click="OnAdminRefreshTeachersClick" />
+            </Grid>
+
+            <Border x:Name="AdminTeacherStatusBorder"
+                    Classes="statusCard">
+              <TextBlock x:Name="AdminTeacherStatusTextBlock"
+                         Text=""
+                         TextWrapping="Wrap"
+                         Classes="subtle" />
+            </Border>
+
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="10">
+              <Button x:Name="AdminAddTeacherButton"
+                      Grid.Column="0"
+                      Classes="primary"
+                      HorizontalAlignment="Stretch"
+                      Content="Přidat učitele"
+                      Click="OnAdminAddTeacherClick" />
+              <Button x:Name="AdminDeleteTeacherButton"
+                      Grid.Column="1"
+                      Classes="danger"
+                      HorizontalAlignment="Stretch"
+                      Content="Odstranit učitele"
+                      Click="OnAdminDeleteTeacherClick" />
+            </Grid>
+
+            <Border Classes="statusCard"
+                    Padding="8"
+                    ClipToBounds="True">
+              <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Disabled">
+                <ListBox x:Name="AdminTeachersListBox"
+                         MinWidth="700"
+                         MaxHeight="220"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="OnAdminTeacherSelectionChanged">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="115,140,70,80,130,130"
+                            ColumnSpacing="10"
+                            MinHeight="34">
+                        <TextBlock Grid.Column="0" Text="{Binding Username}" TextWrapping="Wrap" Foreground="#FFFFFF" />
+                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" TextWrapping="Wrap" Foreground="#DBEAFE" />
+                        <TextBlock Grid.Column="2" Text="{Binding Role}" TextWrapping="Wrap" Foreground="#C9D5E8" />
+                        <TextBlock Grid.Column="3" Text="{Binding ActiveText}" TextWrapping="Wrap" Foreground="#C9D5E8" />
+                        <TextBlock Grid.Column="4" Text="{Binding CreatedText}" TextWrapping="Wrap" Foreground="#A7B4C8" />
+                        <TextBlock Grid.Column="5" Text="{Binding UpdatedText}" TextWrapping="Wrap" Foreground="#A7B4C8" />
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </ScrollViewer>
+            </Border>
+
+            <Grid ColumnDefinitions="*,130"
+                  ColumnSpacing="10">
+              <TextBox x:Name="AdminTeacherDisplayNameTextBox"
+                       Grid.Column="0"
+                       Watermark="Zobrazované jméno vybraného učitele" />
+              <Button x:Name="AdminUpdateDisplayNameButton"
+                      Grid.Column="1"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Upravit"
+                      Click="OnAdminUpdateTeacherClick" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,130"
+                  ColumnSpacing="10">
+              <ComboBox x:Name="AdminTeacherRoleComboBox"
+                        Grid.Column="0"
+                        HorizontalAlignment="Stretch" />
+              <Button x:Name="AdminChangeRoleButton"
+                      Grid.Column="1"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Změnit roli"
+                      Click="OnAdminUpdateTeacherClick" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="10"
+                  RowSpacing="10">
+              <Button x:Name="AdminResetTeacherPasswordButton"
+                      Grid.Row="0"
+                      Grid.Column="0"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Reset hesla"
+                      Click="OnAdminResetTeacherPasswordClick" />
+              <Button x:Name="AdminDeactivateTeacherButton"
+                      Grid.Row="0"
+                      Grid.Column="1"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Deaktivovat"
+                      Click="OnAdminDeactivateTeacherClick" />
+              <Button x:Name="AdminActivateTeacherButton"
+                      Grid.Row="1"
+                      Grid.Column="0"
+                      Grid.ColumnSpan="2"
+                      Classes="secondary"
+                      HorizontalAlignment="Stretch"
+                      Content="Aktivovat"
+                      Click="OnAdminActivateTeacherClick" />
+            </Grid>
+          </StackPanel>
+        </Border>
+
         <Border Classes="card">
           <StackPanel Spacing="12">
             <TextBlock Text="Detail žáka"

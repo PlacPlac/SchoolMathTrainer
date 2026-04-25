@@ -6,14 +6,16 @@ public sealed record TeacherLoginRequest(
 
 public sealed record TeacherLoginResponse(
     string Token,
-    DateTime ExpiresUtc);
+    DateTime ExpiresUtc,
+    string Role = TeacherRoles.Teacher);
 
 public sealed record TeacherLoginClientResult(
     bool Success,
     string Message,
     string Token = "",
     DateTime? ExpiresUtc = null,
-    string Username = "");
+    string Username = "",
+    string Role = TeacherRoles.Teacher);
 
 public sealed record TeacherTokenValidationResult(
     bool Success,
