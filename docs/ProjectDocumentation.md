@@ -16,6 +16,23 @@ Aktuální komponenty:
 | `SharedCore` | .NET knihovna | Sdílené modely, validace, statistiky, konfigurace a file-based služby. |
 | `SchoolMathTrainer.TeacherAdmin` | Konzolová app | Správa teacher účtů ve file-based storage. |
 
+## TeacherApp UI
+
+`TeacherApp` má bezpečně oddělený nepřihlášený a přihlášený stav. Před přihlášením učitele je viditelná pouze přihlašovací část učitelského účtu a bezpečný stav aplikace. Učitelská data se bez přihlášení nenačítají.
+
+Před přihlášením nejsou vidět:
+- hlavní akce pro načítání a obnovu dat,
+- seznam žáků,
+- vytvoření nového žáka,
+- třídní přehled,
+- detail žáka,
+- akce se žákem,
+- výsledky žáka,
+- poslední hry žáka,
+- poslední aktivity třídy.
+
+Po úspěšné autentizaci učitele se interní učitelská administrace zobrazí a funguje stejně jako dříve: hlavní akce, seznam žáků, vytvoření žáka, třídní přehled, detail žáka, reset PINu, generování `.smtcfg`, výsledky žáka a aktivity třídy. Po odhlášení nebo ztrátě teacher session se interní panely opět skryjí a zobrazená data se vyčistí podle existující logiky aplikace.
+
 ## StudentApp UI
 
 `StudentApp` má aktuálně modernizované dětské WPF rozhraní. Vizuálně používá sytější, ale stále přátelskou pastelovou paletu, kompaktní horní hlavičku `Školní počítání` a přehledné karty bez starých velkých gradientových bloků.
@@ -174,6 +191,8 @@ Teacher autentizace:
 - používá username + password,
 - vrací opaque session token,
 - vyžaduje `Authorization: Bearer <token>` pro teacher endpointy,
+- `TeacherApp` před úspěšným přihlášením nezobrazuje interní administraci a nenačítá data třídy,
+- po odhlášení nebo ztrátě session se interní panely skryjí a zobrazená data se vyčistí,
 - neukládá token do `.smtcfg`,
 - neukládá token na disk klienta,
 - server ukládá pouze hash tokenu do security evidence.

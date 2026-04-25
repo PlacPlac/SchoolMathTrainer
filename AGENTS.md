@@ -22,6 +22,7 @@ Aktuální hlavní fakta:
 - interní API runtime běží na `127.0.0.1:5078`,
 - onboarding žáka probíhá přes `.smtcfg`,
 - teacher autentizace používá Bearer token,
+- `TeacherApp` před přihlášením učitele zobrazuje jen přihlašovací část a bezpečný stav; interní administrace, seznamy, výsledky a akce se žáky se zobrazí až po úspěšné autentizaci a po odhlášení nebo ztrátě session se znovu skryjí,
 - studentský upload výsledků používá student session token,
 - `StudentApp` má modernizované dětské WPF UI s barevnější pastelovou paletou, kompaktní horní hlavičkou, viditelným načteným žákovským souborem před přihlášením, dostupným tlačítkem `Změnit žáka` před přihlášením a sekcemi `Vyber si procvičování` a `Výsledky`.
 
@@ -97,6 +98,7 @@ Teacher autentizace:
 - alias `POST /api/teachers/login`
 - teacher endpointy vyžadují `Authorization: Bearer <token>`
 - logout je `POST /api/teachers/logout`
+- učitelská data se bez přihlášení nenačítají a interní panely `TeacherApp` se před přihlášením nezobrazují
 
 Student autentizace:
 - `POST /api/classes/{classId}/login`

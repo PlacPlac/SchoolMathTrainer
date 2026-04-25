@@ -9,6 +9,12 @@ Aktuální řešení má tyto hlavní části:
 - `SharedCore`: sdílené modely a služby.
 - `SchoolMathTrainer.TeacherAdmin`: konzolový nástroj pro správu učitelských účtů.
 
+## TeacherApp
+
+`TeacherApp` před přihlášením učitele zobrazuje pouze přihlašovací část učitelského účtu a bezpečný stav aplikace. Data třídy se bez přihlášení nenačítají a interní administrační části nejsou před ověřením učitele vidět.
+
+Po úspěšné autentizaci učitele se zobrazí hlavní akce, seznam žáků, vytvoření nového žáka, třídní přehled, detail žáka, akce se žákem, výsledky žáka, poslední hry žáka a poslední aktivity třídy. Po odhlášení nebo ztrátě session se interní panely znovu skryjí a zobrazená data se vyčistí podle existující logiky aplikace.
+
 ## StudentApp
 
 `StudentApp` má modernizované dětské rozhraní s barevnější pastelovou paletou, kompaktní horní hlavičkou a přehlednými kartami. Před přihlášením zobrazuje, pro kterého žáka nebo žákovský soubor je načtená konfigurace, a tlačítko `Změnit žáka` je dostupné už na nepřihlášené obrazovce. Přihlašovací karta drží přehledné levé zarovnání textů, polí a hlavní akce.
