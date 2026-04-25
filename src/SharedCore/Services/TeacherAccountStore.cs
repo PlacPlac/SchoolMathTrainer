@@ -340,15 +340,7 @@ public sealed class TeacherAccountStore
 
     private static string NormalizeUsername(string username)
     {
-        var value = username.Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(value) ||
-            value.Length > 64 ||
-            value.Any(ch => !(char.IsLetterOrDigit(ch) || ch is '.' or '_' or '-' or '@')))
-        {
-            throw new ArgumentException("Teacher username is not valid.", nameof(username));
-        }
-
-        return value;
+        return TeacherUsernameRules.Normalize(username);
     }
 
     private static string NormalizeDisplayName(string displayName, string fallback, bool requireExplicitValue = false)

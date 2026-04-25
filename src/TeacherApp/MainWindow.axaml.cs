@@ -28,7 +28,12 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<StudentActivityListItem> _studentRecentActivities = [];
     private readonly ObservableCollection<ClassOverviewStudentItem> _classOverviewStudents = [];
     private readonly ObservableCollection<AdminTeacherListItemView> _adminTeachers = [];
-    private static readonly string[] TeacherRoleOptions = [TeacherRoles.Teacher, TeacherRoles.Admin];
+    private static readonly RoleOption[] TeacherRoleOptions =
+    [
+        new(TeacherRoles.Admin, "Administrátor"),
+        new(TeacherRoles.Teacher, "Učitel")
+    ];
+    private static readonly string TeacherPasswordRuleText = TeacherPasswordRules.RequirementsText;
     private TeacherServerSettings _serverSettings = TeacherServerSettings.CreateDefault();
     private string _currentDataFolderPath = string.Empty;
     private string _selectedStudentId = string.Empty;
@@ -43,7 +48,7 @@ public partial class MainWindow : Window
         ClassOverviewStudentsListBox.ItemsSource = _classOverviewStudents;
         AdminTeachersListBox.ItemsSource = _adminTeachers;
         AdminTeacherRoleComboBox.ItemsSource = TeacherRoleOptions;
-        AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
+        AdminTeacherRoleComboBox.SelectedItem = FindRoleOption(TeacherRoles.Teacher);
         UpdateEmptyStates();
         _onlineApiDataSource = new TeacherOnlineApiDataSource(_configuration.DataConnection);
         _serverSettings = _serverSettingsService.Load();
@@ -227,7 +232,7 @@ public partial class MainWindow : Window
 
         TeacherLoginStatusTextBlock.Text = string.IsNullOrWhiteSpace(login.Username)
             ? "Přihlášení učitele proběhlo úspěšně."
-            : $"Přihlášeno: {login.Username}. Role: {TeacherRoles.Normalize(login.Role)}.";
+            : $"Přihlášeno: {login.Username}. Role: {ToRoleDisplay(login.Role)}.";
         UpdateTeacherAuthUi();
         if (_onlineApiDataSource.IsAdmin)
         {
@@ -259,19 +264,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var input = await ShowCreateTeacherDialogAsync();
-        if (input is null)
+        var dialogResult = await ShowCreateTeacherDialogAsync();
+        if (dialogResult is null)
         {
             SetAdminTeacherStatus("Vytvoření učitele bylo zrušeno.");
             return;
         }
 
-        var result = await _onlineApiDataSource.CreateAdminTeacherAsync(
-            input.Username,
-            input.DisplayName,
-            input.Password,
-            input.Role);
-        await ApplyAdminTeacherOperationResultAsync(result, input.Username);
+        await LoadAdminTeachersAsync(dialogResult.UsernameToSelect);
+        SetAdminTeacherStatus(dialogResult.Message);
     }
 
     private async void OnAdminUpdateTeacherClick(object? sender, RoutedEventArgs e)
@@ -282,7 +283,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var role = AdminTeacherRoleComboBox.SelectedItem?.ToString() ?? selectedTeacher.Role;
+        var role = GetSelectedRole(AdminTeacherRoleComboBox, selectedTeacher.Role);
         var result = await _onlineApiDataSource.UpdateAdminTeacherAsync(
             selectedTeacher.Username,
             AdminTeacherDisplayNameTextBox.Text ?? string.Empty,
@@ -298,15 +299,15 @@ public partial class MainWindow : Window
             return;
         }
 
-        var password = await ShowPasswordResetDialogAsync(selectedTeacher.Username);
-        if (password is null)
+        var dialogResult = await ShowPasswordResetDialogAsync(selectedTeacher.Username);
+        if (dialogResult is null)
         {
             SetAdminTeacherStatus("Reset hesla byl zrušen.");
             return;
         }
 
-        var result = await _onlineApiDataSource.ResetAdminTeacherPasswordAsync(selectedTeacher.Username, password);
-        await ApplyAdminTeacherOperationResultAsync(result, selectedTeacher.Username);
+        await LoadAdminTeachersAsync(dialogResult.UsernameToSelect);
+        SetAdminTeacherStatus(dialogResult.Message);
     }
 
     private async void OnAdminDeactivateTeacherClick(object? sender, RoutedEventArgs e)
@@ -357,13 +358,13 @@ public partial class MainWindow : Window
         if (AdminTeachersListBox.SelectedItem is not AdminTeacherListItemView selectedTeacher)
         {
             AdminTeacherDisplayNameTextBox.Text = string.Empty;
-            AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
+            AdminTeacherRoleComboBox.SelectedItem = FindRoleOption(TeacherRoles.Teacher);
             RefreshTeacherUiState();
             return;
         }
 
         AdminTeacherDisplayNameTextBox.Text = selectedTeacher.DisplayName;
-        AdminTeacherRoleComboBox.SelectedItem = selectedTeacher.Role;
+        AdminTeacherRoleComboBox.SelectedItem = FindRoleOption(selectedTeacher.Role);
         RefreshTeacherUiState();
     }
 
@@ -450,7 +451,7 @@ public partial class MainWindow : Window
         _adminTeachers.Clear();
         AdminTeachersListBox.SelectedItem = null;
         AdminTeacherDisplayNameTextBox.Text = string.Empty;
-        AdminTeacherRoleComboBox.SelectedItem = TeacherRoles.Teacher;
+        AdminTeacherRoleComboBox.SelectedItem = FindRoleOption(TeacherRoles.Teacher);
         AdminTeacherStatusTextBlock.Text = string.Empty;
     }
 
@@ -821,66 +822,130 @@ public partial class MainWindow : Window
         await dialog.ShowDialog(this);
     }
 
-    private async Task<AdminTeacherCreateInput?> ShowCreateTeacherDialogAsync()
+    private async Task<AdminTeacherDialogResult?> ShowCreateTeacherDialogAsync()
     {
         var usernameBox = CreateDialogTextBox("Uživatelské jméno");
         var displayNameBox = CreateDialogTextBox("Zobrazované jméno");
         var passwordBox = CreateDialogTextBox("Heslo");
+        var confirmPasswordBox = CreateDialogTextBox("Heslo znovu");
         passwordBox.PasswordChar = '*';
+        confirmPasswordBox.PasswordChar = '*';
         var roleBox = CreateDialogRoleComboBox();
+        var errorTextBlock = CreateDialogErrorTextBlock();
 
         var dialog = CreateAdminDialogWindow("Přidat učitele");
         var createButton = CreateDialogButton("Vytvořit", "primary");
         var cancelButton = CreateDialogButton("Zrušit", "secondary");
-        createButton.Click += (_, _) =>
+        createButton.Click += async (_, _) =>
         {
-            var input = new AdminTeacherCreateInput(
+            if (!TryValidateCreateTeacherDialog(
                 usernameBox.Text ?? string.Empty,
                 displayNameBox.Text ?? string.Empty,
                 passwordBox.Text ?? string.Empty,
-                roleBox.SelectedItem?.ToString() ?? TeacherRoles.Teacher);
+                confirmPasswordBox.Text ?? string.Empty,
+                errorTextBlock))
+            {
+                return;
+            }
+
+            createButton.IsEnabled = false;
+            cancelButton.IsEnabled = false;
+            SetDialogError(errorTextBlock, string.Empty);
+            var username = usernameBox.Text ?? string.Empty;
+            var result = await _onlineApiDataSource.CreateAdminTeacherAsync(
+                username,
+                displayNameBox.Text ?? string.Empty,
+                passwordBox.Text ?? string.Empty,
+                GetSelectedRole(roleBox, TeacherRoles.Teacher));
             passwordBox.Text = string.Empty;
-            dialog.Close(input);
+            confirmPasswordBox.Text = string.Empty;
+            createButton.IsEnabled = true;
+            cancelButton.IsEnabled = true;
+
+            if (!result.Success)
+            {
+                SetDialogError(errorTextBlock, result.Message);
+                return;
+            }
+
+            dialog.Close(new AdminTeacherDialogResult(result.Message, username));
         };
         cancelButton.Click += (_, _) =>
         {
             passwordBox.Text = string.Empty;
+            confirmPasswordBox.Text = string.Empty;
             dialog.Close(null);
         };
 
         dialog.Content = CreateDialogContent(
             "Nový učitelský účet",
-            "Heslo se odešle jen na server a po zavření dialogu se neuchovává v UI.",
-            [usernameBox, displayNameBox, passwordBox, roleBox],
+            $"Vyplňte údaje učitele. {TeacherUsernameRules.HelpText} {TeacherPasswordRuleText}",
+            [
+                CreateLabeledField("Uživatelské jméno", usernameBox),
+                CreateLabeledField("Zobrazované jméno", displayNameBox),
+                CreateLabeledField("Heslo", passwordBox),
+                CreateLabeledField("Heslo znovu", confirmPasswordBox),
+                CreateLabeledField("Role", roleBox),
+                errorTextBlock
+            ],
             [cancelButton, createButton]);
-        return await dialog.ShowDialog<AdminTeacherCreateInput?>(this);
+        return await dialog.ShowDialog<AdminTeacherDialogResult?>(this);
     }
 
-    private async Task<string?> ShowPasswordResetDialogAsync(string username)
+    private async Task<AdminTeacherDialogResult?> ShowPasswordResetDialogAsync(string username)
     {
         var passwordBox = CreateDialogTextBox("Nové heslo");
+        var confirmPasswordBox = CreateDialogTextBox("Nové heslo znovu");
         passwordBox.PasswordChar = '*';
+        confirmPasswordBox.PasswordChar = '*';
+        var errorTextBlock = CreateDialogErrorTextBlock();
         var dialog = CreateAdminDialogWindow("Reset hesla");
         var saveButton = CreateDialogButton("Resetovat", "primary");
         var cancelButton = CreateDialogButton("Zrušit", "secondary");
-        saveButton.Click += (_, _) =>
+        saveButton.Click += async (_, _) =>
         {
-            var password = passwordBox.Text ?? string.Empty;
+            if (!TryValidatePasswordPair(
+                passwordBox.Text ?? string.Empty,
+                confirmPasswordBox.Text ?? string.Empty,
+                errorTextBlock))
+            {
+                return;
+            }
+
+            saveButton.IsEnabled = false;
+            cancelButton.IsEnabled = false;
+            SetDialogError(errorTextBlock, string.Empty);
+            var result = await _onlineApiDataSource.ResetAdminTeacherPasswordAsync(username, passwordBox.Text ?? string.Empty);
             passwordBox.Text = string.Empty;
-            dialog.Close(password);
+            confirmPasswordBox.Text = string.Empty;
+            saveButton.IsEnabled = true;
+            cancelButton.IsEnabled = true;
+
+            if (!result.Success)
+            {
+                SetDialogError(errorTextBlock, result.Message);
+                return;
+            }
+
+            dialog.Close(new AdminTeacherDialogResult(result.Message, username));
         };
         cancelButton.Click += (_, _) =>
         {
             passwordBox.Text = string.Empty;
+            confirmPasswordBox.Text = string.Empty;
             dialog.Close(null);
         };
 
         dialog.Content = CreateDialogContent(
             "Reset hesla",
-            $"Zadejte nové heslo pro učitele {username}. Heslo se nezapisuje do logu ani do souboru.",
-            [passwordBox],
+            $"Zadejte nové heslo pro učitele {username}. {TeacherPasswordRuleText}",
+            [
+                CreateLabeledField("Nové heslo", passwordBox),
+                CreateLabeledField("Nové heslo znovu", confirmPasswordBox),
+                errorTextBlock
+            ],
             [cancelButton, saveButton]);
-        return await dialog.ShowDialog<string?>(this);
+        return await dialog.ShowDialog<AdminTeacherDialogResult?>(this);
     }
 
     private async Task<bool> ShowDeleteTeacherConfirmationAsync(string username)
@@ -898,14 +963,78 @@ public partial class MainWindow : Window
         return await dialog.ShowDialog<bool>(this);
     }
 
+    private static bool TryValidateCreateTeacherDialog(
+        string username,
+        string displayName,
+        string password,
+        string confirmPassword,
+        TextBlock errorTextBlock)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            SetDialogError(errorTextBlock, "Uživatelské jméno nesmí být prázdné.");
+            return false;
+        }
+
+        if (!TeacherUsernameRules.TryNormalize(username, out _, out var usernameError))
+        {
+            SetDialogError(errorTextBlock, usernameError);
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            SetDialogError(errorTextBlock, "Zobrazované jméno nesmí být prázdné.");
+            return false;
+        }
+
+        return TryValidatePasswordPair(password, confirmPassword, errorTextBlock);
+    }
+
+    private static bool TryValidatePasswordPair(string password, string confirmPassword, TextBlock errorTextBlock)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            SetDialogError(errorTextBlock, "Heslo nesmí být prázdné.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(confirmPassword))
+        {
+            SetDialogError(errorTextBlock, "Heslo znovu nesmí být prázdné.");
+            return false;
+        }
+
+        if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
+        {
+            SetDialogError(errorTextBlock, "Zadaná hesla se neshodují.");
+            return false;
+        }
+
+        if (!TeacherPasswordRules.TryValidate(password, out var passwordError))
+        {
+            SetDialogError(errorTextBlock, passwordError);
+            return false;
+        }
+
+        SetDialogError(errorTextBlock, string.Empty);
+        return true;
+    }
+
+    private static void SetDialogError(TextBlock errorTextBlock, string message)
+    {
+        errorTextBlock.Text = message;
+        errorTextBlock.IsVisible = !string.IsNullOrWhiteSpace(message);
+    }
+
     private static Window CreateAdminDialogWindow(string title) =>
         new()
         {
             Title = title,
             Width = 460,
-            Height = 360,
+            Height = 620,
             MinWidth = 420,
-            MinHeight = 260,
+            MinHeight = 520,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#080D18"))
         };
@@ -966,17 +1095,55 @@ public partial class MainWindow : Window
             BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#425A7D"))
         };
 
+    private static StackPanel CreateLabeledField(string label, Control field)
+    {
+        var panel = new StackPanel
+        {
+            Spacing = 5
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = label,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E8EEF8")),
+            FontWeight = Avalonia.Media.FontWeight.SemiBold
+        });
+        panel.Children.Add(field);
+        return panel;
+    }
+
+    private static TextBlock CreateDialogErrorTextBlock() =>
+        new()
+        {
+            Text = string.Empty,
+            IsVisible = false,
+            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FCA5A5")),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        };
+
     private static ComboBox CreateDialogRoleComboBox() =>
         new()
         {
             ItemsSource = TeacherRoleOptions,
-            SelectedItem = TeacherRoles.Teacher,
+            SelectedItem = FindRoleOption(TeacherRoles.Teacher),
             Height = 40,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#0A1220")),
             Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FFFFFF")),
             BorderBrush = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#425A7D"))
         };
+
+    private static RoleOption FindRoleOption(string role)
+    {
+        var normalized = TeacherRoles.Normalize(role);
+        return TeacherRoleOptions.First(option => string.Equals(option.Value, normalized, StringComparison.Ordinal));
+    }
+
+    private static string GetSelectedRole(ComboBox comboBox, string fallbackRole) =>
+        comboBox.SelectedItem is RoleOption option
+            ? option.Value
+            : TeacherRoles.Normalize(fallbackRole);
+
+    private static string ToRoleDisplay(string role) => FindRoleOption(role).DisplayName;
 
     private static Button CreateDialogButton(string text, string className)
     {
@@ -1358,9 +1525,12 @@ public partial class MainWindow : Window
             !string.IsNullOrWhiteSpace(AdminTeacherStatusTextBlock.Text);
     }
 
-    private sealed record AdminTeacherCreateInput(
-        string Username,
-        string DisplayName,
-        string Password,
-        string Role);
+    private sealed record AdminTeacherDialogResult(
+        string Message,
+        string UsernameToSelect);
+
+    private sealed record RoleOption(string Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
 }

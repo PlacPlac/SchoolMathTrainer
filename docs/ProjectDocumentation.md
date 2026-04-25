@@ -191,6 +191,10 @@ POST /api/teachers/logout
 
 Teacher autentizace:
 - používá username + password,
+- učitelský username je technický login bez mezer a bez diakritiky,
+- zobrazované jméno učitele může obsahovat celé jméno včetně diakritiky,
+- učitelské heslo musí mít minimálně 12 znaků,
+- pravidlo hesla server vynucuje při vytvoření učitele a resetu hesla,
 - vrací opaque session token,
 - vyžaduje `Authorization: Bearer <token>` pro teacher endpointy,
 - podporuje role `Admin` a `Teacher`,
@@ -206,7 +210,7 @@ Teacher autentizace:
 - neukládá token na disk klienta,
 - server ukládá pouze hash tokenu do security evidence.
 
-První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být předané v příkazu:
+TeacherApp zobrazuje stejné pravidlo hesla a české názvy rolí v admin dialozích, do API ale posílá technické hodnoty `Admin` / `Teacher`. První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být předané v příkazu, dokumentaci ani promptu:
 
 ```powershell
 dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll create-teacher --username admin --display-name Admin --role Admin --data-root /var/lib/schoolmath/data

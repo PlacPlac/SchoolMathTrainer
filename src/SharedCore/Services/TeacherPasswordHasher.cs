@@ -12,10 +12,7 @@ public sealed class TeacherPasswordHasher
 
     public (string PasswordHash, string PasswordSalt) HashPassword(string password)
     {
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            throw new ArgumentException("Password must not be empty.", nameof(password));
-        }
+        TeacherPasswordRules.EnsureValid(password);
 
         var account = new TeacherAccount();
         return (_passwordHasher.HashPassword(account, password), string.Empty);

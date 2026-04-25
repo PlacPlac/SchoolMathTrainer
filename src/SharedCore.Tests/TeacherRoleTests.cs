@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 using SharedCore.Models;
 using SharedCore.Services;
 
@@ -234,6 +235,101 @@ public sealed class TeacherRoleTests
 
         Assert.AreEqual(1, revokedCount);
         Assert.IsFalse(validation.Success);
+    }
+
+    [TestMethod]
+    public void TeacherPasswordRulesExposeMinimumLengthText()
+    {
+        Assert.AreEqual(12, TeacherPasswordRules.MinLength);
+        Assert.AreEqual("Heslo musí mít alespoň 12 znaků.", TeacherPasswordRules.RequirementsText);
+    }
+
+    [TestMethod]
+    public void CreatingTeacherRejectsPasswordShorterThanMinimum()
+    {
+        using var temp = TestDataRoot.Create();
+        var shortPassword = new string('a', TeacherPasswordRules.MinLength - 1);
+
+        var ex = Assert.ThrowsException<ArgumentException>(() =>
+            temp.Store.CreateTeacher("short.password", "Short Password", shortPassword, TeacherRoles.Teacher));
+
+        Assert.AreEqual(TeacherPasswordRules.RequirementsText, ex.Message);
+    }
+
+    [TestMethod]
+    public void CreatingTeacherAcceptsPasswordAtMinimumLength()
+    {
+        using var temp = TestDataRoot.Create();
+        var minimumPassword = new string('a', TeacherPasswordRules.MinLength);
+
+        var account = temp.Store.CreateTeacher("minimum.password", "Minimum Password", minimumPassword, TeacherRoles.Teacher);
+
+        Assert.AreEqual("minimum.password", account.Username);
+    }
+
+    [TestMethod]
+    public void ResettingTeacherPasswordRejectsPasswordShorterThanMinimum()
+    {
+        using var temp = TestDataRoot.Create();
+        var validPassword = Guid.NewGuid().ToString("N");
+        var shortPassword = new string('b', TeacherPasswordRules.MinLength - 1);
+        temp.Store.CreateTeacher("reset.password", "Reset Password", validPassword, TeacherRoles.Teacher);
+
+        var ex = Assert.ThrowsException<ArgumentException>(() =>
+            temp.Store.SetTeacherPassword("reset.password", shortPassword));
+
+        Assert.AreEqual(TeacherPasswordRules.RequirementsText, ex.Message);
+    }
+
+    [TestMethod]
+    public void ExistingTeacherWithPreviouslyStoredShortPasswordHashCanStillLogin()
+    {
+        using var temp = TestDataRoot.Create();
+        var legacyPassword = Guid.NewGuid().ToString("N")[..8];
+        var account = new TeacherAccount
+        {
+            Username = "legacy.password",
+            DisplayName = "Legacy Password",
+            Role = TeacherRoles.Teacher,
+            IsActive = true,
+            CreatedUtc = DateTime.UtcNow,
+            UpdatedUtc = DateTime.UtcNow
+        };
+        account.PasswordHash = new PasswordHasher<TeacherAccount>().HashPassword(account, legacyPassword);
+        WriteTeachers(temp.Store, [account]);
+
+        var verified = temp.Store.VerifyCredentials("legacy.password", legacyPassword);
+
+        Assert.IsNotNull(verified);
+        Assert.AreEqual("legacy.password", verified.Username);
+    }
+
+    [TestMethod]
+    public void TeacherUsernameWithSpaceIsRejected()
+    {
+        Assert.IsFalse(TeacherUsernameRules.TryNormalize("Martin Krnac", out _, out var errorMessage));
+        Assert.AreEqual(TeacherUsernameRules.InvalidUsernameMessage, errorMessage);
+    }
+
+    [TestMethod]
+    public void TeacherUsernameWithDiacriticsIsRejected()
+    {
+        Assert.IsFalse(TeacherUsernameRules.TryNormalize("martin.krnáč", out _, out var errorMessage));
+        Assert.AreEqual(TeacherUsernameRules.InvalidUsernameMessage, errorMessage);
+    }
+
+    [TestMethod]
+    public void TeacherUsernameMartinKrnacIsAccepted()
+    {
+        Assert.IsTrue(TeacherUsernameRules.TryNormalize("martin.krnac", out var normalized, out _));
+        Assert.AreEqual("martin.krnac", normalized);
+    }
+
+    [TestMethod]
+    public void TeacherUsernameUcitel2IsAccepted()
+    {
+        Assert.IsTrue(TeacherUsernameRules.TryNormalize("ucitel_2", out var normalized, out _));
+        Assert.AreEqual("ucitel_2", normalized);
     }
 
     private static void WriteTeachers(TeacherAccountStore store, IReadOnlyList<TeacherAccount> accounts)

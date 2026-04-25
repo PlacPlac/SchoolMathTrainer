@@ -147,6 +147,8 @@ POST /api/teachers/logout
 
 Teacher autentizace:
 - používá username + password,
+- učitelský username je technický login bez mezer a bez diakritiky; zobrazované jméno může obsahovat celé jméno včetně diakritiky,
+- učitelské heslo musí mít minimálně 12 znaků; pravidlo vynucuje server při vytvoření účtu i resetu hesla,
 - vrací opaque session token,
 - vyžaduje `Authorization: Bearer <token>` pro teacher endpointy,
 - ukládá na serveru jen hash tokenu,
@@ -167,7 +169,7 @@ Admin endpointy pro správu učitelů vyžadují platný Bearer token s rolí `A
 - `POST /api/admin/teachers/{username}/activate`
 - `DELETE /api/admin/teachers/{username}`
 
-Admin může učitelský účet odstranit, ale odstranění je server-side chráněné: nelze odstranit posledního `Admin`, nelze odstranit právě přihlášeného administrátora a aktivní sessions odstraněného učitele se zneplatní. Odstranění nemaže audit, žákovská data ani `teacher-auth-settings.json`. Pro běžné vypnutí účtu je vhodnější deaktivace.
+Admin může učitelský účet odstranit, ale odstranění je server-side chráněné: nelze odstranit posledního `Admin`, nelze odstranit právě přihlášeného administrátora a aktivní sessions odstraněného učitele se zneplatní. Odstranění nemaže audit, žákovská data ani `teacher-auth-settings.json`. Pro běžné vypnutí účtu je vhodnější deaktivace. TeacherApp zobrazuje pravidlo hesla a české názvy rolí v admin dialozích, do API ale posílá technické hodnoty `Admin` / `Teacher`.
 
 První admin účet se po deployi stále vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být součástí příkazu:
 

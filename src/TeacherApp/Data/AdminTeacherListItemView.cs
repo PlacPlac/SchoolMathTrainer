@@ -12,6 +12,8 @@ public sealed class AdminTeacherListItemView
         Username = item.Username;
         DisplayName = item.DisplayName;
         Role = TeacherRoles.Normalize(item.Role);
+        RoleDisplay = ToRoleDisplay(Role);
+        RoleListDisplay = TeacherRoles.IsAdmin(Role) ? "Admin" : "Učitel";
         Active = item.Active;
         CreatedUtc = item.CreatedUtc;
         UpdatedUtc = item.UpdatedUtc;
@@ -20,6 +22,8 @@ public sealed class AdminTeacherListItemView
     public string Username { get; }
     public string DisplayName { get; }
     public string Role { get; }
+    public string RoleDisplay { get; }
+    public string RoleListDisplay { get; }
     public bool Active { get; }
     public DateTime CreatedUtc { get; }
     public DateTime UpdatedUtc { get; }
@@ -32,4 +36,7 @@ public sealed class AdminTeacherListItemView
         var local = value.Kind == DateTimeKind.Unspecified ? value : value.ToLocalTime();
         return local.ToString("dd.MM.yyyy HH:mm", CzechCulture);
     }
+
+    private static string ToRoleDisplay(string role) =>
+        TeacherRoles.IsAdmin(role) ? "Administrátor" : "Učitel";
 }

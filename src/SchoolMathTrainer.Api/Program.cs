@@ -146,12 +146,19 @@ app.MapPost("/api/admin/teachers", (AdminCreateTeacherRequest request, HttpConte
 
     try
     {
-        if (request is null ||
-            string.IsNullOrWhiteSpace(request.Username) ||
-            string.IsNullOrWhiteSpace(request.DisplayName) ||
-            string.IsNullOrWhiteSpace(request.Password))
+        if (request is null || string.IsNullOrWhiteSpace(request.DisplayName))
         {
-            return Results.BadRequest(new ApiMessageResponse("Uživatelské jméno, zobrazované jméno a heslo jsou povinné."));
+            return Results.BadRequest(new ApiMessageResponse("Uživatelské jméno a zobrazované jméno jsou povinné."));
+        }
+
+        if (!TeacherUsernameRules.TryNormalize(request.Username, out _, out var usernameError))
+        {
+            return Results.BadRequest(new ApiMessageResponse(usernameError));
+        }
+
+        if (!TeacherPasswordRules.TryValidate(request.Password, out var passwordError))
+        {
+            return Results.BadRequest(new ApiMessageResponse(passwordError));
         }
 
         if (!TryNormalizeRequestRole(request.Role, out var role, out var roleError))
@@ -248,9 +255,14 @@ app.MapPost("/api/admin/teachers/{username}/reset-password", (string username, A
 
     try
     {
-        if (request is null || string.IsNullOrWhiteSpace(request.Password))
+        if (request is null)
         {
-            return Results.BadRequest(new ApiMessageResponse("Heslo je povinné."));
+            return Results.BadRequest(new ApiMessageResponse("Heslo nesmí být prázdné."));
+        }
+
+        if (!TeacherPasswordRules.TryValidate(request.Password, out var passwordError))
+        {
+            return Results.BadRequest(new ApiMessageResponse(passwordError));
         }
 
         var changed = teacherStore.SetTeacherPassword(username, request.Password);

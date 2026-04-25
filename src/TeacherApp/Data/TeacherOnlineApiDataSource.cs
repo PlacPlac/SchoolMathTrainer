@@ -307,7 +307,7 @@ public sealed class TeacherOnlineApiDataSource
             }
 
             var body = await response.Content.ReadAsStringAsync();
-            var serverMessage = ReadApiMessage(body);
+            var serverMessage = ToSafeCzechAdminMessage(ReadApiMessage(body));
             if (!response.IsSuccessStatusCode)
             {
                 DiagnosticLogService.Log(LogName, $"Admin teacher request failed with HTTP {(int)response.StatusCode}.");
@@ -555,6 +555,27 @@ public sealed class TeacherOnlineApiDataSource
         {
             return string.Empty;
         }
+    }
+
+    private static string ToSafeCzechAdminMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return string.Empty;
+        }
+
+        if (message.Contains("Teacher username is not valid", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("Parameter 'username'", StringComparison.OrdinalIgnoreCase))
+        {
+            return TeacherUsernameRules.InvalidUsernameMessage;
+        }
+
+        if (message.Contains("Parameter", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Zadané údaje nejsou platné. Zkontrolujte formulář a zkuste to znovu.";
+        }
+
+        return message;
     }
 
     private static AdminTeacherListItem? TryReadAdminTeacher(string json)

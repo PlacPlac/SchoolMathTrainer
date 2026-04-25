@@ -92,6 +92,8 @@ static void PrintUsage()
     Console.WriteLine("  activate-teacher --username <jmeno> [--data-root <cesta>]");
     Console.WriteLine("  list-teachers [--data-root <cesta>]");
     Console.WriteLine();
+    Console.WriteLine($"Pravidlo hesla učitele: {TeacherPasswordRules.RequirementsText}");
+    Console.WriteLine();
     Console.WriteLine("Výchozí data-root: /var/lib/schoolmath/data");
 }
 

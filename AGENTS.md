@@ -103,9 +103,12 @@ Teacher autentizace:
 - teacher endpointy vyžadují `Authorization: Bearer <token>`
 - logout je `POST /api/teachers/logout`
 - učitelská data se bez přihlášení nenačítají a interní panely `TeacherApp` se před přihlášením nezobrazují
+- učitelský username je technický login bez mezer a bez diakritiky; zobrazované jméno smí obsahovat celé jméno včetně diakritiky
+- učitelské heslo musí mít minimálně 12 znaků; pravidlo vynucuje server a TeacherApp ho zobrazuje v admin dialozích
 - admin endpointy `/api/admin/teachers*` vyžadují bearer token s rolí `Admin`
 - `DELETE /api/admin/teachers/{username}` nemaže audit ani žákovská data a pro běžné vypnutí účtu je vhodnější deaktivace
 - admin UI v `TeacherApp` používá server-side chráněné endpointy pro přidání, úpravu, změnu role, reset hesla, aktivaci, deaktivaci a odstranění učitele; hesla se nezapisují do příkazů ani dokumentace
+- role se v TeacherApp UI zobrazují česky, ale API používá technické hodnoty `Admin` / `Teacher`
 - první admin účet se vytváří přes `TeacherAdmin` CLI s `--role Admin`; heslo se zadává interaktivně a nesmí být v příkazu
 
 Student autentizace:
