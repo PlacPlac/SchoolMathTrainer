@@ -191,11 +191,21 @@ Teacher autentizace:
 - používá username + password,
 - vrací opaque session token,
 - vyžaduje `Authorization: Bearer <token>` pro teacher endpointy,
+- podporuje role `Admin` a `Teacher`,
+- účty bez uložené role se načítají jako `Teacher`,
+- admin endpointy pod `/api/admin/*` vyžadují roli `Admin`,
+- poslední aktivní `Admin` nesmí být deaktivován ani převeden na `Teacher`,
 - `TeacherApp` před úspěšným přihlášením nezobrazuje interní administraci a nenačítá data třídy,
 - po odhlášení nebo ztrátě session se interní panely skryjí a zobrazená data se vyčistí,
 - neukládá token do `.smtcfg`,
 - neukládá token na disk klienta,
 - server ukládá pouze hash tokenu do security evidence.
+
+První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být předané v příkazu:
+
+```powershell
+dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll create-teacher --username admin --display-name Admin --role Admin --data-root /var/lib/schoolmath/data
+```
 
 Teacher endpointy s Bearer tokenem:
 
@@ -209,6 +219,19 @@ Teacher endpointy s Bearer tokenem:
 | `POST` | `/api/classes/{classId}/students` | Vytvoření žáka. |
 | `POST` | `/api/students/{classId}/{studentId}/reset-pin` | Reset PINu. |
 | `DELETE` | `/api/students/{classId}/{studentId}` | Smazání žáka. |
+
+Admin endpointy s Bearer tokenem a rolí `Admin`:
+
+| Metoda | Endpoint | Popis |
+|---|---|---|
+| `GET` | `/api/admin/teachers` | Bezpečný seznam učitelů bez hashů, saltů, tokenů a sessions. |
+| `POST` | `/api/admin/teachers` | Vytvoření učitelského účtu. |
+| `PUT` | `/api/admin/teachers/{username}` | Změna zobrazovaného jména nebo role. |
+| `POST` | `/api/admin/teachers/{username}/reset-password` | Reset hesla učitele. |
+| `POST` | `/api/admin/teachers/{username}/deactivate` | Deaktivace učitele. |
+| `POST` | `/api/admin/teachers/{username}/activate` | Aktivace učitele. |
+
+Admin endpointy auditují vytvoření, úpravu, reset hesla, aktivaci, deaktivaci a změnu role učitele. Audit neobsahuje hesla, hashe, salty, tokeny ani PINy.
 
 ## Student autentizace
 

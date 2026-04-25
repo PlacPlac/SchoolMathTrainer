@@ -105,6 +105,61 @@ public sealed class TeacherRoleTests
         Assert.AreEqual(TeacherRoles.Admin, validation.Role);
     }
 
+    [TestMethod]
+    public void LastActiveAdminCannotBeDeactivated()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        temp.Store.CreateTeacher(
+            "only.admin",
+            "Only Admin",
+            generatedPassword,
+            TeacherRoles.Admin);
+
+        Assert.ThrowsException<InvalidOperationException>(() =>
+            temp.Store.SetTeacherActive("only.admin", false));
+    }
+
+    [TestMethod]
+    public void LastActiveAdminCannotBeChangedToTeacher()
+    {
+        using var temp = TestDataRoot.Create();
+        var generatedPassword = Guid.NewGuid().ToString("N");
+        temp.Store.CreateTeacher(
+            "only.admin",
+            "Only Admin",
+            generatedPassword,
+            TeacherRoles.Admin);
+
+        Assert.ThrowsException<InvalidOperationException>(() =>
+            temp.Store.UpdateTeacher("only.admin", null, TeacherRoles.Teacher));
+    }
+
+    [TestMethod]
+    public void RegularTeacherRoleIsNotAdmin()
+    {
+        Assert.IsFalse(TeacherRoles.IsAdmin(TeacherRoles.Teacher));
+    }
+
+    [TestMethod]
+    public void AdminTeacherListItemDoesNotSerializeSensitiveFields()
+    {
+        var item = new AdminTeacherListItem(
+            "admin.user",
+            "Admin User",
+            TeacherRoles.Admin,
+            true,
+            DateTime.UtcNow,
+            DateTime.UtcNow);
+
+        var json = JsonSerializer.Serialize(item, JsonOptions);
+
+        Assert.IsFalse(json.Contains("passwordHash", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("passwordSalt", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("token", StringComparison.OrdinalIgnoreCase));
+        Assert.IsFalse(json.Contains("session", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static void WriteTeachers(TeacherAccountStore store, IReadOnlyList<TeacherAccount> accounts)
     {
         Directory.CreateDirectory(store.SecurityDirectory);

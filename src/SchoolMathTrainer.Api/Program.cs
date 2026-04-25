@@ -127,6 +127,214 @@ app.MapPost("/api/teachers/logout", (HttpContext httpContext, TeacherTokenServic
     return Results.Ok(new ApiMessageResponse("Učitel byl odhlášen."));
 });
 
+app.MapGet("/api/admin/teachers", (HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out _))
+    {
+        return unauthorizedResult;
+    }
+
+    return Results.Ok(teacherStore.ListTeachers().Select(ToAdminTeacherListItem).ToList());
+});
+
+app.MapPost("/api/admin/teachers", (AdminCreateTeacherRequest request, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.Username) ||
+            string.IsNullOrWhiteSpace(request.DisplayName) ||
+            string.IsNullOrWhiteSpace(request.Password))
+        {
+            return Results.BadRequest(new ApiMessageResponse("Uživatelské jméno, zobrazované jméno a heslo jsou povinné."));
+        }
+
+        if (!TryNormalizeRequestRole(request.Role, out var role, out var roleError))
+        {
+            return Results.BadRequest(new ApiMessageResponse(roleError));
+        }
+
+        var created = teacherStore.CreateTeacher(request.Username, request.DisplayName, request.Password, role);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_created", admin, created, "ok");
+        return Results.Created($"/api/admin/teachers/{Uri.EscapeDataString(created.Username)}", ToAdminTeacherListItem(created));
+    }
+    catch (InvalidOperationException ex)
+    {
+        logger.LogWarning(ex, "Admin teacher create request could not be completed.");
+        return Results.Conflict(new ApiMessageResponse("Učitelský účet už existuje nebo ho nelze vytvořit."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher create request.");
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher create request failed.");
+        return Results.Problem("Učitelský účet se nepodařilo vytvořit.");
+    }
+});
+
+app.MapPut("/api/admin/teachers/{username}", (string username, AdminUpdateTeacherRequest request, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        if (request is null)
+        {
+            return Results.BadRequest(new ApiMessageResponse("Požadavek na úpravu učitele není platný."));
+        }
+
+        if (request.DisplayName is not null && string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            return Results.BadRequest(new ApiMessageResponse("Zobrazované jméno nesmí být prázdné."));
+        }
+
+        if (!TryNormalizeRequestRole(request.Role, out var role, out var roleError))
+        {
+            return Results.BadRequest(new ApiMessageResponse(roleError));
+        }
+
+        var before = teacherStore.FindTeacher(username);
+        if (before is null)
+        {
+            return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+        }
+
+        var updated = teacherStore.UpdateTeacher(username, request.DisplayName, request.Role is null ? null : role);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_updated", admin, updated, "ok");
+        if (!string.Equals(TeacherRoles.Normalize(before.Role), TeacherRoles.Normalize(updated.Role), StringComparison.Ordinal))
+        {
+            WriteAdminAudit(audit, httpContext, "admin_teacher_role_changed", admin, updated, "ok");
+        }
+
+        return Results.Ok(ToAdminTeacherListItem(updated));
+    }
+    catch (InvalidOperationException ex) when (IsLastActiveAdminProtection(ex))
+    {
+        return Results.Conflict(new ApiMessageResponse("Poslední aktivní administrátor musí zůstat aktivní a s rolí Admin."));
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher update request for {Username}.", username);
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher update request failed for {Username}.", username);
+        return Results.Problem("Učitelský účet se nepodařilo upravit.");
+    }
+});
+
+app.MapPost("/api/admin/teachers/{username}/reset-password", (string username, AdminResetTeacherPasswordRequest request, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return Results.BadRequest(new ApiMessageResponse("Heslo je povinné."));
+        }
+
+        var changed = teacherStore.SetTeacherPassword(username, request.Password);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_password_reset", admin, changed, "ok");
+        return Results.Ok(ToAdminTeacherListItem(changed));
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher password reset request for {Username}.", username);
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher password reset request failed for {Username}.", username);
+        return Results.Problem("Heslo učitele se nepodařilo změnit.");
+    }
+});
+
+app.MapPost("/api/admin/teachers/{username}/deactivate", (string username, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        var deactivated = teacherStore.SetTeacherActive(username, false);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_deactivated", admin, deactivated, "ok");
+        return Results.Ok(ToAdminTeacherListItem(deactivated));
+    }
+    catch (InvalidOperationException ex) when (IsLastActiveAdminProtection(ex))
+    {
+        return Results.Conflict(new ApiMessageResponse("Poslední aktivní administrátor nesmí být deaktivován."));
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher deactivate request for {Username}.", username);
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher deactivate request failed for {Username}.", username);
+        return Results.Problem("Učitelský účet se nepodařilo deaktivovat.");
+    }
+});
+
+app.MapPost("/api/admin/teachers/{username}/activate", (string username, HttpContext httpContext, TeacherAccountStore teacherStore, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
+{
+    if (!TryAuthorizeAdmin(httpContext, teacherTokens, audit, out var unauthorizedResult, out var admin))
+    {
+        return unauthorizedResult;
+    }
+
+    try
+    {
+        var activated = teacherStore.SetTeacherActive(username, true);
+        WriteAdminAudit(audit, httpContext, "admin_teacher_activated", admin, activated, "ok");
+        return Results.Ok(ToAdminTeacherListItem(activated));
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound(new ApiMessageResponse("Učitelský účet nebyl nalezen."));
+    }
+    catch (ArgumentException ex)
+    {
+        logger.LogWarning(ex, "Invalid admin teacher activate request for {Username}.", username);
+        return Results.BadRequest(new ApiMessageResponse(ex.Message));
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+    {
+        logger.LogError(ex, "Admin teacher activate request failed for {Username}.", username);
+        return Results.Problem("Učitelský účet se nepodařilo aktivovat.");
+    }
+});
+
 app.MapGet("/api/classes/{classId}", (string classId, HttpContext httpContext, IClassDataRepository repository, TeacherTokenService teacherTokens, TeacherAuthAuditLogger audit) =>
 {
     if (!TryAuthorizeTeacher(httpContext, teacherTokens, audit, out var unauthorizedResult))
@@ -418,7 +626,24 @@ static bool TryAuthorizeTeacher(
         teacherTokens,
         audit,
         requiredRole: string.Empty,
-        out unauthorizedResult);
+        out unauthorizedResult,
+        out _);
+}
+
+static bool TryAuthorizeAdmin(
+    HttpContext httpContext,
+    TeacherTokenService teacherTokens,
+    TeacherAuthAuditLogger audit,
+    out IResult? unauthorizedResult,
+    out TeacherTokenValidationResult validation)
+{
+    return TryAuthorizeTeacherRole(
+        httpContext,
+        teacherTokens,
+        audit,
+        TeacherRoles.Admin,
+        out unauthorizedResult,
+        out validation);
 }
 
 static bool TryAuthorizeTeacherRole(
@@ -426,9 +651,11 @@ static bool TryAuthorizeTeacherRole(
     TeacherTokenService teacherTokens,
     TeacherAuthAuditLogger audit,
     string requiredRole,
-    out IResult? unauthorizedResult)
+    out IResult? unauthorizedResult,
+    out TeacherTokenValidationResult validation)
 {
     unauthorizedResult = null;
+    validation = new TeacherTokenValidationResult(false);
     var request = httpContext.Request;
     var remoteAddress = GetRemoteAddress(httpContext);
     if (!TryReadBearerToken(request, out var token))
@@ -438,7 +665,7 @@ static bool TryAuthorizeTeacherRole(
         return false;
     }
 
-    var validation = teacherTokens.ValidateToken(token);
+    validation = teacherTokens.ValidateToken(token);
     if (!validation.Success)
     {
         audit.Write("teacher_unauthorized_access", string.Empty, remoteAddress, request.Path, StatusCodes.Status401Unauthorized, validation.Message);
@@ -450,12 +677,56 @@ static bool TryAuthorizeTeacherRole(
         !TeacherRoles.IsAdmin(validation.Role))
     {
         audit.Write("teacher_forbidden_access", validation.Username, remoteAddress, request.Path, StatusCodes.Status403Forbidden, "Admin role is required.", validation.Role);
-        unauthorizedResult = Results.Forbid();
+        unauthorizedResult = Results.StatusCode(StatusCodes.Status403Forbidden);
         return false;
     }
 
     return true;
 }
+
+static bool TryNormalizeRequestRole(string? role, out string normalizedRole, out string errorMessage)
+{
+    if (TeacherRoles.TryNormalize(role, out normalizedRole))
+    {
+        errorMessage = string.Empty;
+        return true;
+    }
+
+    errorMessage = "Role musí být Admin nebo Teacher.";
+    return false;
+}
+
+static AdminTeacherListItem ToAdminTeacherListItem(TeacherAccount account) =>
+    new(
+        account.Username,
+        account.DisplayName,
+        TeacherRoles.Normalize(account.Role),
+        account.IsActive,
+        account.CreatedUtc,
+        account.UpdatedUtc);
+
+static void WriteAdminAudit(
+    TeacherAuthAuditLogger audit,
+    HttpContext httpContext,
+    string eventType,
+    TeacherTokenValidationResult admin,
+    TeacherAccount target,
+    string result)
+{
+    audit.Write(
+        eventType,
+        admin.Username,
+        GetRemoteAddress(httpContext),
+        httpContext.Request.Path,
+        StatusCodes.Status200OK,
+        "Admin teacher account action completed.",
+        TeacherRoles.Normalize(target.Role),
+        target.Username,
+        result);
+}
+
+static bool IsLastActiveAdminProtection(InvalidOperationException ex) =>
+    ex.Message.Contains("last active admin", StringComparison.OrdinalIgnoreCase);
 
 static IResult CreateTeacherLoginLockedResult(HttpContext httpContext, TimeSpan retryAfter)
 {

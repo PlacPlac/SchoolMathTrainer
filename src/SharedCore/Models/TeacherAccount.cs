@@ -19,17 +19,33 @@ public static class TeacherRoles
 
     public static string Normalize(string? role)
     {
+        return TryNormalize(role, out var normalizedRole)
+            ? normalizedRole
+            : Teacher;
+    }
+
+    public static bool TryNormalize(string? role, out string normalizedRole)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            normalizedRole = Teacher;
+            return true;
+        }
+
         if (string.Equals(role, Admin, StringComparison.OrdinalIgnoreCase))
         {
-            return Admin;
+            normalizedRole = Admin;
+            return true;
         }
 
         if (string.Equals(role, Teacher, StringComparison.OrdinalIgnoreCase))
         {
-            return Teacher;
+            normalizedRole = Teacher;
+            return true;
         }
 
-        return Teacher;
+        normalizedRole = Teacher;
+        return false;
     }
 
     public static bool IsAdmin(string? role) =>

@@ -150,6 +150,26 @@ Teacher autentizace:
 - ukládá na serveru jen hash tokenu,
 - neukládá token do `.smtcfg` ani na disk klienta.
 
+Role učitelů:
+- `Teacher` může používat běžné učitelské endpointy,
+- `Admin` může používat běžné učitelské endpointy i admin endpointy pod `/api/admin/*`,
+- účty bez uložené role se načítají jako `Teacher`,
+- poslední aktivní `Admin` nemůže být deaktivován ani převeden na roli `Teacher`.
+
+Admin endpointy pro správu učitelů vyžadují platný Bearer token s rolí `Admin`:
+- `GET /api/admin/teachers`
+- `POST /api/admin/teachers`
+- `PUT /api/admin/teachers/{username}`
+- `POST /api/admin/teachers/{username}/reset-password`
+- `POST /api/admin/teachers/{username}/deactivate`
+- `POST /api/admin/teachers/{username}/activate`
+
+První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být součástí příkazu:
+
+```powershell
+dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll create-teacher --username admin --display-name Admin --role Admin --data-root /var/lib/schoolmath/data
+```
+
 Žákovská autentizace je oddělená:
 - `POST /api/classes/{classId}/login` používá `loginCode`, PIN, volitelný `newPin` a `studentId` z `.smtcfg`,
 - úspěšný login vrací `studentSessionToken`,

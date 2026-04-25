@@ -108,6 +108,50 @@ public sealed class TeacherAccountStore
         }
     }
 
+    public TeacherAccount UpdateTeacher(string username, string? displayName, string? role)
+    {
+        var normalizedUsername = NormalizeUsername(username);
+        var hasDisplayName = displayName is not null;
+        var hasRole = role is not null;
+        var normalizedDisplayName = hasDisplayName
+            ? NormalizeDisplayName(displayName!, normalizedUsername, requireExplicitValue: true)
+            : string.Empty;
+        var normalizedRole = hasRole ? TeacherRoles.Normalize(role) : string.Empty;
+
+        lock (_sync)
+        {
+            var teachers = LoadTeachersUnsafe();
+            var account = FindTeacherUnsafe(teachers, normalizedUsername);
+            if (account is null)
+            {
+                throw new InvalidOperationException("Teacher account was not found.");
+            }
+
+            if (hasRole &&
+                account.IsActive &&
+                TeacherRoles.IsAdmin(account.Role) &&
+                !TeacherRoles.IsAdmin(normalizedRole) &&
+                CountActiveAdmins(teachers) <= 1)
+            {
+                throw new InvalidOperationException("The last active admin cannot lose the Admin role.");
+            }
+
+            if (hasDisplayName)
+            {
+                account.DisplayName = normalizedDisplayName;
+            }
+
+            if (hasRole)
+            {
+                account.Role = normalizedRole;
+            }
+
+            account.UpdatedUtc = DateTime.UtcNow;
+            SaveTeachersUnsafe(teachers);
+            return account;
+        }
+    }
+
     public TeacherAccount SetTeacherActive(string username, bool isActive)
     {
         var normalizedUsername = NormalizeUsername(username);
@@ -120,6 +164,14 @@ public sealed class TeacherAccountStore
             if (account is null)
             {
                 throw new InvalidOperationException("Teacher account was not found.");
+            }
+
+            if (!isActive &&
+                account.IsActive &&
+                TeacherRoles.IsAdmin(account.Role) &&
+                CountActiveAdmins(teachers) <= 1)
+            {
+                throw new InvalidOperationException("The last active admin cannot be deactivated.");
             }
 
             account.IsActive = isActive;
@@ -227,6 +279,13 @@ public sealed class TeacherAccountStore
             teachers.OrderBy(account => account.Username, StringComparer.OrdinalIgnoreCase).ToList());
     }
 
+    private static TeacherAccount? FindTeacherUnsafe(List<TeacherAccount> teachers, string normalizedUsername) =>
+        teachers.FirstOrDefault(item =>
+            string.Equals(item.Username, normalizedUsername, StringComparison.OrdinalIgnoreCase));
+
+    private static int CountActiveAdmins(List<TeacherAccount> teachers) =>
+        teachers.Count(account => account.IsActive && TeacherRoles.IsAdmin(account.Role));
+
     private static void SaveJsonAtomic<T>(string path, T value)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path) ?? string.Empty);
@@ -255,9 +314,14 @@ public sealed class TeacherAccountStore
         return value;
     }
 
-    private static string NormalizeDisplayName(string displayName, string fallback)
+    private static string NormalizeDisplayName(string displayName, string fallback, bool requireExplicitValue = false)
     {
         var value = string.IsNullOrWhiteSpace(displayName) ? fallback : displayName.Trim();
+        if (requireExplicitValue && string.IsNullOrWhiteSpace(displayName))
+        {
+            throw new ArgumentException("Teacher display name must not be empty.", nameof(displayName));
+        }
+
         if (value.Length > 120)
         {
             throw new ArgumentException("Teacher display name is too long.", nameof(displayName));
