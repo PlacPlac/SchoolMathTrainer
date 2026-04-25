@@ -107,6 +107,10 @@ public partial class MainWindow : Window
         TeacherPasswordTextBox.IsEnabled = !isAuthenticated;
 
         var teacherActionsEnabled = !IsOnlineApiMode || isAuthenticated;
+        TeacherActionsPanel.IsVisible = teacherActionsEnabled;
+        TeacherAdminMainArea.IsVisible = teacherActionsEnabled;
+        TeacherAdminDetailArea.IsVisible = teacherActionsEnabled;
+
         var studentActionEnabled = teacherActionsEnabled && StudentListBox.SelectedItem is StudentListItem &&
             !string.IsNullOrWhiteSpace(_selectedStudentId);
         RefreshDataButton.IsEnabled = teacherActionsEnabled;

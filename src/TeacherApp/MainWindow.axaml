@@ -195,7 +195,8 @@
           </StackPanel>
         </Border>
 
-        <Border Grid.Row="2"
+        <Border x:Name="TeacherActionsPanel"
+                Grid.Row="2"
                 Classes="card cardTight">
           <StackPanel Spacing="12">
             <TextBlock Text="Hlavní akce"
@@ -232,7 +233,8 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Column="1"
+    <Grid x:Name="TeacherAdminMainArea"
+          Grid.Column="1"
           RowDefinitions="Auto,*,Auto"
           RowSpacing="14">
       <Border Grid.Row="0"
@@ -461,7 +463,8 @@
       </Border>
     </Grid>
 
-    <ScrollViewer Grid.Column="2"
+    <ScrollViewer x:Name="TeacherAdminDetailArea"
+                  Grid.Column="2"
                   VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="16">
         <Border Classes="card">
