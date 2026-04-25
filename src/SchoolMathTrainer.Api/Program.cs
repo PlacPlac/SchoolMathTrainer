@@ -820,7 +820,7 @@ static IResult CreateStudentLoginLockedResult(HttpContext httpContext, TimeSpan 
     var safeRetryAfter = Math.Max(1, (int)Math.Ceiling(Math.Max(0, retryAfter.TotalSeconds)));
     httpContext.Response.Headers.RetryAfter = safeRetryAfter.ToString();
     return Results.Json(
-        new ApiMessageResponse("Příliš mnoho neúspěšných pokusů. Zkuste to prosím později."),
+        new ApiMessageResponse("Příliš mnoho neúspěšných pokusů. Zkus to prosím později."),
         statusCode: StatusCodes.Status423Locked);
 }
 

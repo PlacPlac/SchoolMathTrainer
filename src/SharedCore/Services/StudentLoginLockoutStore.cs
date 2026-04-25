@@ -6,6 +6,13 @@ namespace SharedCore.Services;
 
 public sealed class StudentLoginLockoutStore
 {
+    private static readonly StudentLoginLockoutPolicy[] Policies =
+    [
+        new("student-ip", TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(15), 5),
+        new("student", TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30), 10),
+        new("class-ip", TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(30), 30)
+    ];
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         WriteIndented = true,
@@ -15,67 +22,90 @@ public sealed class StudentLoginLockoutStore
 
     private readonly object _sync = new();
     private readonly string _securityDirectory;
-    private readonly TimeSpan _window = TimeSpan.FromMinutes(10);
-    private readonly TimeSpan _lockout = TimeSpan.FromMinutes(15);
-    private readonly int _maxFailures = 5;
+    private readonly Func<DateTime> _utcNowProvider;
 
-    public StudentLoginLockoutStore(string securityDirectory)
+    public StudentLoginLockoutStore(string securityDirectory, Func<DateTime>? utcNowProvider = null)
     {
         _securityDirectory = string.IsNullOrWhiteSpace(securityDirectory)
             ? throw new ArgumentException("Security directory must not be empty.", nameof(securityDirectory))
             : Path.GetFullPath(securityDirectory);
+        _utcNowProvider = utcNowProvider ?? (() => DateTime.UtcNow);
     }
 
     public bool IsLocked(string classId, string loginCode, string remoteAddress, out TimeSpan retryAfter)
     {
         retryAfter = TimeSpan.Zero;
-        var now = DateTime.UtcNow;
+        var now = _utcNowProvider();
         lock (_sync)
         {
             var records = LoadRecordsUnsafe();
             var changed = RemoveExpiredLocksUnsafe(records, now);
-            var record = FindRecord(records, BuildRecordKey(classId, loginCode, remoteAddress));
+            var lockout = GetActiveLockout(records, BuildRecordKeys(classId, loginCode, remoteAddress), now);
             if (changed)
             {
                 SaveRecordsUnsafe(records);
             }
 
-            if (record?.LockedUntilUtc is not { } lockedUntil || lockedUntil <= now)
+            if (!lockout.HasValue)
             {
                 return false;
             }
 
-            retryAfter = lockedUntil - now;
+            retryAfter = lockout.Value - now;
             return true;
         }
     }
 
     public StudentLoginFailureRegistration RegisterFailure(string classId, string loginCode, string remoteAddress)
     {
-        var now = DateTime.UtcNow;
+        var now = _utcNowProvider();
         lock (_sync)
         {
             var records = LoadRecordsUnsafe();
             RemoveExpiredLocksUnsafe(records, now);
-            var key = BuildRecordKey(classId, loginCode, remoteAddress);
-            var record = GetOrCreateRecord(records, key, now);
-            var lockoutStarted = RegisterFailureUnsafe(record, now);
+            var lockoutStarted = false;
+            DateTime? longestLockout = null;
+            var primaryFailureCount = 0;
+
+            foreach (var key in BuildRecordKeys(classId, loginCode, remoteAddress))
+            {
+                var record = GetOrCreateRecord(records, key, now);
+                var policy = GetPolicy(record.Scope);
+                var started = RegisterFailureUnsafe(record, policy, now);
+                lockoutStarted = lockoutStarted || started;
+                primaryFailureCount = string.Equals(record.Scope, "student-ip", StringComparison.Ordinal)
+                    ? record.FailureCount
+                    : primaryFailureCount;
+
+                if (record.LockedUntilUtc.HasValue &&
+                    (!longestLockout.HasValue || record.LockedUntilUtc.Value > longestLockout.Value))
+                {
+                    longestLockout = record.LockedUntilUtc.Value;
+                }
+            }
+
             SaveRecordsUnsafe(records);
 
             return new StudentLoginFailureRegistration(
                 lockoutStarted,
-                record.LockedUntilUtc,
-                record.FailureCount);
+                longestLockout,
+                primaryFailureCount);
         }
     }
 
     public void RegisterSuccess(string classId, string loginCode, string remoteAddress)
     {
+        var now = _utcNowProvider();
         lock (_sync)
         {
             var records = LoadRecordsUnsafe();
+            var keys = BuildRecordKeys(classId, loginCode, remoteAddress)
+                .Where(key => !string.Equals(key.Scope, "class-ip", StringComparison.Ordinal))
+                .Select(key => key.Key)
+                .ToHashSet(StringComparer.Ordinal);
             var removed = records.RemoveAll(record =>
-                string.Equals(record.Key, BuildRecordKey(classId, loginCode, remoteAddress), StringComparison.Ordinal)) > 0;
+                keys.Contains(record.Key) &&
+                (!record.LockedUntilUtc.HasValue || record.LockedUntilUtc.Value <= now)) > 0;
             if (removed)
             {
                 SaveRecordsUnsafe(records);
@@ -85,9 +115,9 @@ public sealed class StudentLoginLockoutStore
 
     private string LockoutFilePath => Path.Combine(_securityDirectory, "student-login-lockouts.json");
 
-    private bool RegisterFailureUnsafe(StudentLoginLockoutRecord record, DateTime now)
+    private bool RegisterFailureUnsafe(StudentLoginLockoutRecord record, StudentLoginLockoutPolicy policy, DateTime now)
     {
-        if (now - record.FirstFailureUtc > _window)
+        if (now - record.FirstFailureUtc > policy.Window)
         {
             record.FirstFailureUtc = now;
             record.FailureCount = 0;
@@ -96,12 +126,12 @@ public sealed class StudentLoginLockoutStore
 
         record.FailureCount++;
         record.LastFailureUtc = now;
-        if (record.FailureCount < _maxFailures)
+        if (record.FailureCount < policy.MaxFailures)
         {
             return false;
         }
 
-        var lockedUntil = now.Add(_lockout);
+        var lockedUntil = now.Add(policy.Lockout);
         var wasAlreadyLocked = record.LockedUntilUtc.HasValue && record.LockedUntilUtc.Value > now;
         record.LockedUntilUtc = lockedUntil;
         return !wasAlreadyLocked;
@@ -111,7 +141,7 @@ public sealed class StudentLoginLockoutStore
     {
         var removed = records.RemoveAll(record =>
             record.LockedUntilUtc.HasValue && record.LockedUntilUtc.Value <= now &&
-            now - record.FirstFailureUtc > _window) > 0;
+            now - record.FirstFailureUtc > GetPolicy(record.Scope).Window) > 0;
         var unlocked = false;
         foreach (var record in records.Where(record =>
                      record.LockedUntilUtc.HasValue && record.LockedUntilUtc.Value <= now))
@@ -123,6 +153,26 @@ public sealed class StudentLoginLockoutStore
         return removed || unlocked;
     }
 
+    private static DateTime? GetActiveLockout(
+        List<StudentLoginLockoutRecord> records,
+        IReadOnlyList<StudentLoginLockoutKey> keys,
+        DateTime now)
+    {
+        DateTime? lockedUntil = null;
+        var keySet = keys.Select(key => key.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var record in records.Where(record => keySet.Contains(record.Key)))
+        {
+            if (record.LockedUntilUtc.HasValue &&
+                record.LockedUntilUtc.Value > now &&
+                (!lockedUntil.HasValue || record.LockedUntilUtc.Value > lockedUntil.Value))
+            {
+                lockedUntil = record.LockedUntilUtc.Value;
+            }
+        }
+
+        return lockedUntil;
+    }
+
     private static StudentLoginLockoutRecord? FindRecord(
         List<StudentLoginLockoutRecord> records,
         string key) =>
@@ -131,10 +181,10 @@ public sealed class StudentLoginLockoutStore
 
     private static StudentLoginLockoutRecord GetOrCreateRecord(
         List<StudentLoginLockoutRecord> records,
-        string key,
+        StudentLoginLockoutKey key,
         DateTime now)
     {
-        var record = FindRecord(records, key);
+        var record = FindRecord(records, key.Key);
         if (record is not null)
         {
             return record;
@@ -142,7 +192,8 @@ public sealed class StudentLoginLockoutStore
 
         record = new StudentLoginLockoutRecord
         {
-            Key = key,
+            Key = key.Key,
+            Scope = key.Scope,
             FirstFailureUtc = now,
             LastFailureUtc = now
         };
@@ -161,7 +212,7 @@ public sealed class StudentLoginLockoutStore
         var records = JsonSerializer.Deserialize<List<StudentLoginLockoutRecord>>(
             File.ReadAllText(LockoutFilePath, Encoding.UTF8),
             SerializerOptions);
-        return records ?? [];
+        return MigrateRecords(records ?? []);
     }
 
     private void SaveRecordsUnsafe(List<StudentLoginLockoutRecord> records)
@@ -182,14 +233,46 @@ public sealed class StudentLoginLockoutStore
         }
     }
 
-    private static string BuildRecordKey(string classId, string loginCode, string remoteAddress)
+    private static IReadOnlyList<StudentLoginLockoutKey> BuildRecordKeys(
+        string classId,
+        string loginCode,
+        string remoteAddress)
     {
-        return string.Join(
-            "|",
-            NormalizeClassIdKey(classId),
-            NormalizeLoginCodeKey(loginCode),
-            NormalizeIpKey(remoteAddress));
+        var normalizedClassId = NormalizeClassIdKey(classId);
+        var normalizedLoginCode = NormalizeLoginCodeKey(loginCode);
+        var normalizedIp = NormalizeIpKey(remoteAddress);
+        return
+        [
+            BuildScopedKey("student-ip", normalizedClassId, normalizedLoginCode, normalizedIp),
+            BuildScopedKey("student", normalizedClassId, normalizedLoginCode),
+            BuildScopedKey("class-ip", normalizedClassId, normalizedIp)
+        ];
     }
+
+    private static StudentLoginLockoutKey BuildScopedKey(string scope, params string[] parts) =>
+        new(scope, $"{scope}:{HashKey(string.Join("|", parts))}");
+
+    private static List<StudentLoginLockoutRecord> MigrateRecords(List<StudentLoginLockoutRecord> records)
+    {
+        foreach (var record in records)
+        {
+            if (!string.IsNullOrWhiteSpace(record.Scope))
+            {
+                continue;
+            }
+
+            record.Scope = "student-ip";
+            record.Key = record.Key.StartsWith("student-ip:", StringComparison.Ordinal)
+                ? record.Key
+                : $"student-ip:{HashKey(record.Key)}";
+        }
+
+        return records;
+    }
+
+    private static StudentLoginLockoutPolicy GetPolicy(string? scope) =>
+        Policies.FirstOrDefault(policy => string.Equals(policy.Scope, scope, StringComparison.Ordinal)) ??
+        Policies[0];
 
     private static string NormalizeClassIdKey(string classId)
     {
@@ -225,6 +308,16 @@ public sealed class StudentLoginLockoutStore
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 }
 
+public sealed record StudentLoginLockoutPolicy(
+    string Scope,
+    TimeSpan Window,
+    TimeSpan Lockout,
+    int MaxFailures);
+
+public sealed record StudentLoginLockoutKey(
+    string Scope,
+    string Key);
+
 public sealed record StudentLoginFailureRegistration(
     bool LockoutStarted,
     DateTime? LockedUntilUtc,
@@ -232,6 +325,7 @@ public sealed record StudentLoginFailureRegistration(
 
 public sealed class StudentLoginLockoutRecord
 {
+    public string Scope { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
     public int FailureCount { get; set; }
     public DateTime FirstFailureUtc { get; set; } = DateTime.UtcNow;

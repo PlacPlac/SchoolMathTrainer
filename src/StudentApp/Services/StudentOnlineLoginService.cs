@@ -98,12 +98,12 @@ public sealed class StudentOnlineLoginService
         {
             var message = await response.Content.ReadFromJsonAsync<ApiMessageResponse>();
             return string.IsNullOrWhiteSpace(message?.Message)
-                ? "Příliš mnoho neúspěšných pokusů. Zkuste to prosím později."
+                ? "Příliš mnoho neúspěšných pokusů. Zkus to prosím později."
                 : message.Message;
         }
         catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or HttpRequestException)
         {
-            return "Příliš mnoho neúspěšných pokusů. Zkuste to prosím později.";
+            return "Příliš mnoho neúspěšných pokusů. Zkus to prosím později.";
         }
     }
 
