@@ -22,7 +22,8 @@ Aktuální hlavní fakta:
 - interní API runtime běží na `127.0.0.1:5078`,
 - onboarding žáka probíhá přes `.smtcfg`,
 - teacher autentizace používá Bearer token,
-- studentský upload výsledků používá student session token.
+- studentský upload výsledků používá student session token,
+- `StudentApp` má modernizované dětské WPF UI s barevnější pastelovou paletou, kompaktní horní hlavičkou, viditelným načteným žákovským souborem před přihlášením, dostupným tlačítkem `Změnit žáka` před přihlášením a sekcemi `Vyber si procvičování` a `Výsledky`.
 
 ## Dokumentační pravda
 
@@ -71,7 +72,7 @@ dotnet run --project .\src\SchoolMathTrainer.TeacherAdmin\SchoolMathTrainer.Teac
 ## Bezpečnostní pravidla
 
 Nikdy:
-- nepoužívej starý server `89.221.220.226`,
+- nepoužívej starý server `89.221.220.226`, protože je kompromitovaný,
 - neprezentuj `TeacherDashboard` jako aktuální učitelskou aplikaci,
 - nevystavuj API přímo na `0.0.0.0:5078`,
 - nepiš do dokumentace ani repozitáře hesla, tokeny, privátní klíče ani jiné tajné údaje,
@@ -100,4 +101,6 @@ Teacher autentizace:
 Student autentizace:
 - `POST /api/classes/{classId}/login`
 - po úspěchu vzniká `studentSessionToken`
+- token se drží jen v paměti `StudentApp` a neukládá se do `.smtcfg` ani na disk klienta
 - upload výsledků na `POST /api/students/{classId}/{studentId}/results` vyžaduje student Bearer token
+- při `401` nebo `403` se žák odhlásí a výsledek zůstane lokálně

@@ -9,6 +9,27 @@ Aktuální řešení má tyto hlavní části:
 - `SharedCore`: sdílené modely a služby.
 - `SchoolMathTrainer.TeacherAdmin`: konzolový nástroj pro správu učitelských účtů.
 
+## StudentApp
+
+`StudentApp` má modernizované dětské rozhraní s barevnější pastelovou paletou, kompaktní horní hlavičkou a přehlednými kartami. Před přihlášením zobrazuje, pro kterého žáka nebo žákovský soubor je načtená konfigurace, a tlačítko `Změnit žáka` je dostupné už na nepřihlášené obrazovce. Přihlašovací karta drží přehledné levé zarovnání textů, polí a hlavní akce.
+
+Po přihlášení je hlavní obrazovka rozdělená na sekci `Vyber si procvičování`, sekci `Výsledky` a aktivní obsah hry nebo výsledků. Herní obsah je navržený tak, aby na běžné obrazovce fungoval bez svislého scrollu.
+
+Dostupné režimy a akce:
+- `Začátečník` - Počítání do 20.
+- `Pokročilý` - Počítání do 20.
+- `Nová hra`.
+- `Můj výsledek`.
+- `Třídní výsledky`.
+
+Zachované bezpečnostní chování:
+- žák se přihlašuje přes `loginCode` + PIN,
+- po úspěšném přihlášení vzniká student session token,
+- student session token se drží jen v paměti klienta,
+- `.smtcfg` neobsahuje PIN ani token,
+- upload výsledků vyžaduje platný student Bearer token,
+- při `401` nebo `403` se žák odhlásí a výsledek zůstane lokálně.
+
 ## Aktuální produkční stav
 
 - Hlavní učitelská aplikace je `TeacherApp`. `TeacherDashboard` už není aktuální název ani hlavní GUI.
@@ -138,7 +159,7 @@ Teacher autentizace:
 
 ## Zakázané/nepoužívat
 
-- Nepoužívat starý server `89.221.220.226`.
+- Nepoužívat starý server `89.221.220.226`; je kompromitovaný a nesmí se používat.
 - Nepřenášet `sample-data` ze starého serveru ani ji nevydávat za produkční snapshot.
 - Nevystavovat API přímo na `0.0.0.0:5078` ani veřejně nepřipojovat klienty na port `5078`.
 - Nevkládat tajné údaje do dokumentace ani do repozitáře.

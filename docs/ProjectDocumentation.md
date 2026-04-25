@@ -1,6 +1,6 @@
 # SchoolMathTrainer - projektová dokumentace
 
-Aktualizováno: 2026-04-24
+Aktualizováno: 2026-04-25
 
 ## Přehled
 
@@ -15,6 +15,35 @@ Aktuální komponenty:
 | `SchoolMathTrainer.Api` | ASP.NET Core API | Produkční a lokální backend pro teacher i student endpointy. |
 | `SharedCore` | .NET knihovna | Sdílené modely, validace, statistiky, konfigurace a file-based služby. |
 | `SchoolMathTrainer.TeacherAdmin` | Konzolová app | Správa teacher účtů ve file-based storage. |
+
+## StudentApp UI
+
+`StudentApp` má aktuálně modernizované dětské WPF rozhraní. Vizuálně používá sytější, ale stále přátelskou pastelovou paletu, kompaktní horní hlavičku `Školní počítání` a přehledné karty bez starých velkých gradientových bloků.
+
+Nepřihlášená obrazovka:
+- zobrazuje načtený žákovský soubor nebo dostupnou identifikaci žáka z `.smtcfg`,
+- upozorňuje, že přihlašovací kód musí odpovídat načtenému souboru,
+- má dostupné tlačítko `Změnit žáka` ještě před přihlášením,
+- drží sjednocené levé zarovnání hlavičky, nadpisu, informačního boxu, popisků polí a hlavní akce `Vstoupit`.
+
+Přihlášená obrazovka:
+- má kompaktní stavový panel přihlášeného žáka,
+- nabízí sekci `Vyber si procvičování`,
+- nabízí sekci `Výsledky`,
+- zobrazuje aktivní obsah hry nebo výsledků ve spodní části,
+- zachovává herní obrazovku bez svislého scrollu na běžném desktopovém rozlišení.
+
+Dostupné režimy a akce:
+
+| Prvek | Popis |
+|---|---|
+| `Začátečník` | Počítání do 20. |
+| `Pokročilý` | Počítání do 20. |
+| `Nová hra` | Spuštění nového kola aktuálního procvičování. |
+| `Můj výsledek` | Zobrazení výsledků přihlášeného žáka. |
+| `Třídní výsledky` | Zobrazení třídních výsledků. |
+
+Modernizace UI nemění backend, API endpointy, onboarding formát, login flow, session token flow ani upload výsledků.
 
 ## Aktuální produkční stav
 
@@ -192,6 +221,9 @@ Authorization: Bearer <studentSessionToken>
 Důležité:
 - studentský upload už není anonymní,
 - studentský upload nepoužívá teacher token,
+- student session token se drží jen v paměti `StudentApp` a neukládá se do `.smtcfg` ani na disk klienta,
+- výsledky se uploadují jen s platným student Bearer tokenem,
+- při `401` nebo `403` se žák odhlásí a neodeslaný výsledek zůstane lokálně,
 - při expiraci student session tokenu musí žák projít znovu login flow,
 - backend může vrátit `RequiresPinChange` nebo `RequiresStudentConfigurationReload`.
 
@@ -223,7 +255,7 @@ Lokální a sdílené soubory:
 
 ## Zakázané/nepoužívat
 
-- Nepoužívat starý server `89.221.220.226`.
+- Nepoužívat starý server `89.221.220.226`; je kompromitovaný a nesmí se používat.
 - Nepřenášet `sample-data` ze starého serveru do aktuálního repa.
 - Nevystavovat API přímo na `0.0.0.0:5078`.
 - Nevkládat tajné údaje do dokumentace ani repozitáře.
