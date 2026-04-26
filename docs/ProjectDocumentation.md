@@ -1,138 +1,156 @@
 # SchoolMathTrainer - projektová dokumentace
 
-Aktualizováno: 2026-04-25
+Aktualizováno: 2026-04-26
 
 ## Přehled
 
 SchoolMathTrainer je desktopové řešení pro školní procvičování matematiky.
 
-Aktuální komponenty:
-
 | Komponenta | Typ | Účel |
 |---|---|---|
-| `TeacherApp` | Avalonia desktop app | Učitelské GUI pro přihlášení, správu žáků, výsledky, reset PINu a generování `.smtcfg`. |
-| `StudentApp` | WPF desktop app | Žákovská aplikace pro import `.smtcfg`, přihlášení, změnu dočasného PINu a odesílání výsledků. |
+| `TeacherApp` | Avalonia desktop app | Učitelské GUI pro přihlášení, správu žáků, výsledky, reset PINu, generování `.smtcfg` a admin správu učitelů. |
+| `StudentApp` | WPF desktop app | Žákovská aplikace pro import `.smtcfg`, přihlášení, změnu dočasného PINu, procvičování a upload výsledků. |
 | `SchoolMathTrainer.Api` | ASP.NET Core API | Produkční a lokální backend pro teacher i student endpointy. |
 | `SharedCore` | .NET knihovna | Sdílené modely, validace, statistiky, konfigurace a file-based služby. |
 | `SchoolMathTrainer.TeacherAdmin` | Konzolová app | Správa teacher účtů ve file-based storage. |
 
-## TeacherApp UI
-
-`TeacherApp` má bezpečně oddělený nepřihlášený a přihlášený stav. Před přihlášením učitele je viditelná pouze přihlašovací část učitelského účtu a bezpečný stav aplikace. Učitelská data se bez přihlášení nenačítají.
-
-Před přihlášením nejsou vidět:
-- hlavní akce pro načítání a obnovu dat,
-- seznam žáků,
-- vytvoření nového žáka,
-- třídní přehled,
-- detail žáka,
-- akce se žákem,
-- výsledky žáka,
-- poslední hry žáka,
-- poslední aktivity třídy.
-
-Po úspěšné autentizaci učitele se interní učitelská administrace zobrazí a funguje stejně jako dříve: hlavní akce, seznam žáků, vytvoření žáka, třídní přehled, detail žáka, reset PINu, generování `.smtcfg`, výsledky žáka a aktivity třídy. Po odhlášení nebo ztrátě teacher session se interní panely opět skryjí a zobrazená data se vyčistí podle existující logiky aplikace.
-
-Po přihlášení s rolí `Admin` je navíc viditelná sekce `Správa učitelů`. Běžný `Teacher` tuto sekci nevidí. Admin může v UI načíst seznam učitelů, přidat učitele, upravit zobrazované jméno, změnit roli, resetovat heslo, aktivovat, deaktivovat a odstranit učitele. Admin UI používá server-side chráněné `/api/admin/*` endpointy; hesla se neposílají v příkazech, nelogují se a neukládají se do dokumentace. Odstranění učitele nemaže audit ani žákovská data a server nedovolí odstranit posledního `Admin`, posledního aktivního `Admin` ani právě přihlášeného administrátora.
-
 ## StudentApp UI
 
-`StudentApp` má aktuálně modernizované dětské WPF rozhraní. Vizuálně používá sytější, ale stále přátelskou pastelovou paletu, kompaktní horní hlavičku `Školní počítání` a přehledné karty bez starých velkých gradientových bloků.
+`StudentApp` má modernější dětské rozhraní se sytější, veselejší barevnou paletou, kompaktní horní hlavičkou a herní obrazovkou bez svislého scrollu po přihlášení. Odpovědi v režimu `Začátečník` i `Pokročilý` nejsou dole uříznuté.
 
-Nepřihlášená obrazovka:
-- zobrazuje načtený žákovský soubor nebo dostupnou identifikaci žáka z `.smtcfg`,
-- upozorňuje, že přihlašovací kód musí odpovídat načtenému souboru,
-- má dostupné tlačítko `Změnit žáka` ještě před přihlášením,
-- drží sjednocené levé zarovnání hlavičky, nadpisu, informačního boxu, popisků polí a hlavní akce `Vstoupit`.
+Před přihlášením:
+- zobrazuje načtený žákovský soubor nebo žáka,
+- tlačítko `Změnit žáka` je viditelné a funkční,
+- login/session/upload logika je zachovaná.
 
-Přihlášená obrazovka:
-- má kompaktní stavový panel přihlášeného žáka,
-- nabízí sekci `Vyber si procvičování`,
-- nabízí sekci `Výsledky`,
-- zobrazuje aktivní obsah hry nebo výsledků ve spodní části,
-- zachovává herní obrazovku bez svislého scrollu na běžném desktopovém rozlišení.
+Po přihlášení funguje:
+- `Začátečník`,
+- `Pokročilý`,
+- `Nová hra`,
+- `Můj výsledek`,
+- `Třídní výsledky`,
+- `Změnit žáka`,
+- `Zavřít`.
 
-Dostupné režimy a akce:
+### Maskování PINu
 
-| Prvek | Popis |
-|---|---|
-| `Začátečník` | Počítání do 20. |
-| `Pokročilý` | Počítání do 20. |
-| `Nová hra` | Spuštění nového kola aktuálního procvičování. |
-| `Můj výsledek` | Zobrazení výsledků přihlášeného žáka. |
-| `Třídní výsledky` | Zobrazení třídních výsledků. |
+Commit: `a900f6c Mask student PIN entry.`
 
-Modernizace UI nemění backend, API endpointy, onboarding formát, login flow, session token flow ani upload výsledků.
+PIN je při zadávání standardně skrytý. Přepínač `Zobrazit PIN` / `Skrýt PIN` funguje pro běžné přihlášení a mění pouze režim zobrazení, ne hodnotu. Ruční ověření musí potvrdit, že při zadání `1234` se po zobrazení ukáže přesně `1234`, ne `4321`.
 
-## Aktuální produkční stav
+Při změně dočasného PINu:
+- původní dočasný PIN se znovu nezobrazuje,
+- původní PIN je pouze vizuálně označený jako ověřený, například maskou `****`,
+- aktivní je pole `Nový PIN`,
+- přepínač smí zobrazit skutečnou hodnotu pouze u pole `Nový PIN`,
+- nový PIN po dokončení funguje,
+- dočasný PIN po změně už nemá fungovat.
 
-- Hlavní učitelské GUI je `TeacherApp`.
-- Produkční server je `89.221.212.49`.
-- Jediný aktuálně povolený klientský `apiBaseUrl` je `http://89.221.212.49`.
-- Veřejný provoz jde přes nginx. Kestrel není určený pro přímý veřejný provoz.
-- Teacher endpointy vyžadují Bearer token.
-- Student login je oddělený flow a po úspěšném přihlášení vydává student session token pro upload výsledků.
-- Onboarding žáka probíhá přes `.smtcfg`.
+PIN, nový PIN ani dočasný PIN se nesmí logovat, ukládat do souboru ani zobrazovat v diagnostice.
 
-## Lokální vývoj
+## TeacherApp UI a admin správa
 
-Build:
+`TeacherApp` má oddělený nepřihlášený a přihlášený stav. Nepřihlášený stav nevidí interní panely. Po přihlášení běžný `Teacher` používá učitelské rozhraní bez sekce `Správa učitelů`. `Admin` vidí navíc sekci `Správa učitelů`.
 
-```powershell
-dotnet build .\SchoolMathTrainer.sln
-```
+Server chrání admin endpointy rolí `Admin`. `Teacher` dostává `403`, neplatný nebo nepřihlášený uživatel `401`.
 
-TeacherApp:
+Admin pravidla:
+- nelze odstranit, deaktivovat ani demotovat posledního aktivního `Admina`,
+- nelze odstranit právě přihlášeného `Admina`,
+- odstranění učitele nemaže audit ani žákovská data,
+- odstranění učitele zneplatní jeho sessions,
+- admin API nikdy nevrací hashe, salty, tokeny ani sessions.
 
-```powershell
-dotnet run --project .\src\TeacherApp\TeacherApp.csproj
-```
-
-StudentApp:
-
-```powershell
-dotnet run --project .\src\StudentApp\StudentApp.csproj
-```
-
-API:
-
-```powershell
-dotnet run --project .\src\SchoolMathTrainer.Api\SchoolMathTrainer.Api.csproj
-```
-
-Teacher admin:
-
-```powershell
-dotnet run --project .\src\SchoolMathTrainer.TeacherAdmin\SchoolMathTrainer.TeacherAdmin.csproj -- list-teachers --data-root C:\path\to\data
-```
-
-Lokální důležité cesty:
+Učitelské heslo musí mít alespoň 12 znaků. Přesný text pravidla:
 
 ```text
-%LOCALAPPDATA%\SchoolMathTrainer\api-data
-%LOCALAPPDATA%\SchoolMathTrainer\teacher-server-settings.json
-%LOCALAPPDATA%\SchoolMathTrainer\shared-data-folder.json
-%LOCALAPPDATA%\SchoolMathTrainer\ssh\known_hosts
-%LOCALAPPDATA%\SchoolMathTrainer\teacher-sftp-cache\
+Heslo musí mít alespoň 12 znaků.
 ```
 
-## Server a bezpečnost
+`username` je technický login bez mezer a diakritiky. Povolené znaky jsou `a-z`, číslice, tečka, pomlčka a podtržítko; maximální délka je 64 znaků. `displayName` smí obsahovat českou diakritiku.
 
-- Produkční host: `89.221.212.49`
-- Veřejný klientský vstup: `http://89.221.212.49`
-- Veřejný port pro klienty: `80`
-- Interní API runtime: `127.0.0.1:5078`
-- Produkční data root API: `/var/lib/schoolmath/data`
-- Security složka: `/var/lib/schoolmath/data/security`
-- TeacherApp SSH/SFTP výchozí nastavení: host `89.221.212.49`, port `22`, uživatel `schoolmath`, vzdálená cesta `/srv/schoolmath/data`
+## Backend - redakce auth logů
 
-Bezpečnostní pravidla:
-- Teacher token se drží jen v paměti klienta.
-- Server ukládá jen hash teacher session tokenu.
-- Teacher login i student login mají lockout ochranu.
-- `fail2ban` je součást očekávaného serverového hardeningu.
-- Studentský `apiBaseUrl` je striktně omezen na `http://89.221.212.49`.
-- Kestrel nesmí být veřejně bindovaný na `0.0.0.0:5078`.
+Commit: `3f96ff2 Redact student identifiers from API logs.`
+
+Serverové auth-related logy nesmí obsahovat:
+- konkrétní jména žáků,
+- `studentId`,
+- `loginCode`,
+- PIN,
+- `newPIN`,
+- `PinHash`,
+- `PinSalt`,
+- token,
+- `Bearer`,
+- jiné citlivé identifikátory.
+
+Logování má používat jen obecné příznaky typu:
+- `HasConfiguredStudent`,
+- `AccountFound`,
+- `IsActive`,
+- `success`,
+- `requiresCredentialChange`,
+- `requiresStudentConfigurationReload`.
+
+## Student autentizace a session token
+
+Student login endpoint:
+
+```http
+POST /api/classes/{classId}/login
+```
+
+Login vydává `studentSessionToken` a `studentSessionExpiresUtc`. Token má platnost 8 hodin. Server ukládá jen hash tokenu do:
+
+```text
+DataRoot/security/student-sessions.json
+```
+
+`StudentApp` drží token jen v paměti. Upload výsledků používá:
+
+```http
+Authorization: Bearer <student-session-token>
+```
+
+Při `401` nebo `403` `StudentApp` smaže token z paměti, odhlásí žáka a výsledek nechá lokálně.
+
+## Student login lockout
+
+Commit: `0ba8cbf Harden student login brute force protection.`
+
+Lockout je file-based, používá hashované klíče a stav ukládá do:
+
+```text
+DataRoot/security/student-login-lockouts.json
+```
+
+Ochranné vrstvy:
+
+| Vrstva | Klíč | Limit | Okno | Lockout |
+|---|---|---:|---|---|
+| student + IP | `classId + loginCode + IP` | 5 pokusů | 10 minut | 15 minut |
+| student globálně | `classId + loginCode` | 10 pokusů | 30 minut | 30 minut |
+| class + IP | `classId + IP` | 30 pokusů | 10 minut | 30 minut |
+
+API při lockoutu vrací `423 Locked` a `Retry-After`. Pokud narazí více vrstev současně, používá se nejdelší zbývající lockout. `StudentApp` zobrazuje:
+
+```text
+Příliš mnoho neúspěšných pokusů. Zkus to prosím později.
+```
+
+Commit: `bf5b07d Handle invalid student login lockout files.`
+
+`StudentLoginLockoutStore` bezpečně načítá:
+- neexistující soubor,
+- prázdný soubor,
+- whitespace-only soubor,
+- `[]`,
+- `{}`,
+- starý slovníkový formát,
+- poškozený JSON.
+
+Poškozený lockout soubor nesmí shodit login. Po dalším zápisu se uloží nový validní formát.
 
 ## Onboarding žáka
 
@@ -142,7 +160,7 @@ Aktuální workflow:
 3. Učitel vygeneruje onboarding soubor.
 4. `TeacherApp` uloží `<LoginCode>.smtcfg`.
 5. `StudentApp` při prvním spuštění vyžádá `.smtcfg`.
-6. `StudentApp` import uloží do `%LOCALAPPDATA%\SchoolMathTrainer\shared-data-folder.json`.
+6. `StudentApp` import uloží do lokální konfigurace.
 7. Žák se přihlásí přes `loginCode` + PIN.
 8. Po úspěšném loginu získá student session token pro upload výsledků.
 
@@ -157,164 +175,103 @@ Formát `.smtcfg`:
 }
 ```
 
-Soubor `.smtcfg` neobsahuje:
-- PIN,
-- teacher token,
-- teacher credentials,
-- SSH klíče,
-- jiný host nebo vlastní port.
+Soubor `.smtcfg` neobsahuje PIN, teacher token, teacher credentials, SSH klíče ani vlastní port.
 
-Validace onboarding souboru:
-- `apiBaseUrl` musí být přesně povolená klientská adresa.
-- `StudentApp` i backend používají `studentId` z importovaného souboru.
-- Pokud `loginCode` patří jinému žákovi než importovaný `studentId`, login se odmítne jako nesoulad konfigurace žáka.
+## Serverový stav
 
-## Autentizace učitele
+- Aktivní VPS: `89.221.212.49`.
+- OS: Ubuntu 24.04.4 LTS.
+- Hostname: `schoolmath-server`.
+- API služba: `schoolmath-api.service`.
+- API běží z `/home/schoolmath/api/SchoolMathTrainer.Api.dll`.
+- API poslouchá jen na `127.0.0.1:5078`.
+- Nginx je veřejná vstupní brána.
+- Dočasný veřejný endpoint: `http://89.221.212.49`.
+- Port `5078` se zvenku nepoužívá.
+- Dlouhodobě: doména + Let’s Encrypt TLS.
+- Starý server `89.221.220.226` je kompromitovaný a nesmí se používat ani migrovat.
 
-Primární login endpoint:
+## Monitoring a zálohy
 
-```http
-POST /api/teacher-auth/login
-```
+- `ssh-alert-watcher.sh`, cooldown 3600 sekund.
+- `send-telegram-alert.sh`.
+- Fail2Ban `sshd`: `maxretry 3`, `findtime 10m`, `bantime 1h`.
+- `check-security-updates.timer` denně v 07:30.
+- `schoolmath-backup.timer` denně, zálohy do `/var/backups/schoolmath`, retence 7.
+- `server-stability-check` každých 5 minut.
+- `schoolmath-data-integrity-check` každých 15 minut.
+- DataRoot: `/var/lib/schoolmath/data`.
+- Security data: `/var/lib/schoolmath/data/security`.
 
-Kompatibilní alias:
+## Úklid projektu
 
-```http
-POST /api/teachers/login
-```
+Proběhl bezpečný úklid přes karanténu.
 
-Logout:
+- Karanténa: `C:\Scripts\Codex\archive\SchoolMathTrainer-cleanup-20260425-223913`.
+- Audit report: `C:\Scripts\Codex\archive\SchoolMathTrainer-cleanup-20260425-223913\cleanup-report.txt`.
+- Přesunuto 979 souborů/složek.
+- Karanténu zatím nemazat.
+- Po úklidu build OK, testy 37/37, git status čistý, `TeacherApp` i `StudentApp` funkční.
 
-```http
-POST /api/teachers/logout
-```
+## Spouštěcí příkazy
 
-Teacher autentizace:
-- používá username + password,
-- učitelský username je technický login bez mezer a bez diakritiky,
-- zobrazované jméno učitele může obsahovat celé jméno včetně diakritiky,
-- učitelské heslo musí mít minimálně 12 znaků,
-- pravidlo hesla server vynucuje při vytvoření učitele a resetu hesla,
-- vrací opaque session token,
-- vyžaduje `Authorization: Bearer <token>` pro teacher endpointy,
-- podporuje role `Admin` a `Teacher`,
-- účty bez uložené role se načítají jako `Teacher`,
-- admin endpointy pod `/api/admin/*` vyžadují roli `Admin`,
-- poslední aktivní `Admin` nesmí být deaktivován ani převeden na `Teacher`,
-- učitelský účet lze odstranit jen server-side chráněným admin endpointem,
-- nelze odstranit posledního `Admin` ani právě přihlášeného administrátora,
-- `TeacherApp` zobrazuje sekci `Správa učitelů` jen přihlášenému `Admin`; běžný `Teacher` ji nevidí,
-- `TeacherApp` před úspěšným přihlášením nezobrazuje interní administraci a nenačítá data třídy,
-- po odhlášení nebo ztrátě session se interní panely skryjí a zobrazená data se vyčistí,
-- neukládá token do `.smtcfg`,
-- neukládá token na disk klienta,
-- server ukládá pouze hash tokenu do security evidence.
-
-TeacherApp zobrazuje stejné pravidlo hesla a české názvy rolí v admin dialozích, do API ale posílá technické hodnoty `Admin` / `Teacher`. První admin účet se po deployi vytváří přes `TeacherAdmin` CLI. Heslo se zadává interaktivně a nesmí být předané v příkazu, dokumentaci ani promptu:
+TeacherApp:
 
 ```powershell
-dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll create-teacher --username admin --display-name Admin --role Admin --data-root /var/lib/schoolmath/data
+Set-Location 'C:\Scripts\Codex\apps\src\Aplikace_skola_pocitani\SchoolMathTrainer'
+dotnet run --project .\src\TeacherApp\TeacherApp.csproj
 ```
 
-Teacher endpointy s Bearer tokenem:
+StudentApp:
 
-| Metoda | Endpoint | Popis |
-|---|---|---|
-| `GET` | `/api/classes/{classId}` | Seznam žáků. |
-| `GET` | `/api/classes/{classId}/overview` | Třídní přehled. |
-| `GET` | `/api/classes/{classId}/activities?limit=10` | Poslední aktivity třídy. |
-| `GET` | `/api/students/{classId}/{studentId}` | Detail žáka. |
-| `GET` | `/api/students/{classId}/{studentId}/results` | Výsledky žáka. |
-| `POST` | `/api/classes/{classId}/students` | Vytvoření žáka. |
-| `POST` | `/api/students/{classId}/{studentId}/reset-pin` | Reset PINu. |
-| `DELETE` | `/api/students/{classId}/{studentId}` | Smazání žáka. |
-
-Admin endpointy s Bearer tokenem a rolí `Admin`:
-
-| Metoda | Endpoint | Popis |
-|---|---|---|
-| `GET` | `/api/admin/teachers` | Bezpečný seznam učitelů bez hashů, saltů, tokenů a sessions. |
-| `POST` | `/api/admin/teachers` | Vytvoření učitelského účtu. |
-| `PUT` | `/api/admin/teachers/{username}` | Změna zobrazovaného jména nebo role. |
-| `POST` | `/api/admin/teachers/{username}/reset-password` | Reset hesla učitele. |
-| `POST` | `/api/admin/teachers/{username}/deactivate` | Deaktivace učitele. |
-| `POST` | `/api/admin/teachers/{username}/activate` | Aktivace učitele. |
-| `DELETE` | `/api/admin/teachers/{username}` | Odstranění učitele se zneplatněním jeho sessions. |
-
-Admin endpointy auditují vytvoření, úpravu, reset hesla, aktivaci, deaktivaci, odstranění a změnu role učitele. Audit neobsahuje hesla, hashe, salty, tokeny ani PINy.
-
-Odstranění učitele nemaže audit, žákovská data ani `teacher-auth-settings.json`. Pro běžné vypnutí účtu je vhodnější deaktivace.
-
-## Student autentizace
-
-Student login endpoint:
-
-```http
-POST /api/classes/{classId}/login
+```powershell
+Set-Location 'C:\Scripts\Codex\apps\src\Aplikace_skola_pocitani\SchoolMathTrainer'
+dotnet run --project .\src\StudentApp\StudentApp.csproj
 ```
 
-Student login používá:
-- `loginCode`,
-- PIN,
-- volitelný `newPin`,
-- `studentId` z importovaného `.smtcfg`.
+## Ověřovací příkazy
 
-Úspěšný student login vrací:
-- `studentId`,
-- `displayName`,
-- `studentSessionToken`,
-- `studentSessionExpiresUtc`.
+PowerShell:
 
-Upload výsledků:
-
-```http
-POST /api/students/{classId}/{studentId}/results
-Authorization: Bearer <studentSessionToken>
+```powershell
+Set-Location 'C:\Scripts\Codex\apps\src\Aplikace_skola_pocitani\SchoolMathTrainer'
+$env:GIT_PAGER = 'cat'
+dotnet build .\SchoolMathTrainer.sln
+dotnet test .\SchoolMathTrainer.sln
+git status --short
+git log --oneline -10
 ```
 
-Důležité:
-- studentský upload už není anonymní,
-- studentský upload nepoužívá teacher token,
-- student session token se drží jen v paměti `StudentApp` a neukládá se do `.smtcfg` ani na disk klienta,
-- výsledky se uploadují jen s platným student Bearer tokenem,
-- při `401` nebo `403` se žák odhlásí a neodeslaný výsledek zůstane lokálně,
-- při expiraci student session tokenu musí žák projít znovu login flow,
-- backend může vrátit `RequiresPinChange` nebo `RequiresStudentConfigurationReload`.
+Server:
 
-## Data a úložiště
-
-Projekt používá file-based storage, ne databázi.
-
-Typické produkční cesty:
-
-```text
-/var/lib/schoolmath/data
-/var/lib/schoolmath/data/production
-/var/lib/schoolmath/data/security
+```bash
+systemctl status schoolmath-api.service --no-pager
+curl -i http://127.0.0.1:5078/health
+curl -i http://89.221.212.49/health
+ss -tulpen | grep 5078 || true
+dotnet /home/schoolmath/api/SchoolMathTrainer.TeacherAdmin.dll list-teachers --data-root /var/lib/schoolmath/data
 ```
 
-Lokální a sdílené soubory:
-- `teacher-server-settings.json` pro teacher server/SFTP nastavení,
-- `shared-data-folder.json` pro importovaný onboarding a lokální přístup žáka,
-- `teacher-sftp-cache\` pro read-only cache vzdálených dat,
-- `Logs\` pro lokální logy a validační výstupy.
+## Zakázané / nepoužívat
 
-## Zálohy a monitoring
-
-- Repozitář obsahuje jen základní oporu pro logování a audit.
-- Teacher auth ukládá audit a lockout data do security složky.
-- Lokální validační logy README vznikají ve složce `Logs/`.
-- V repozitáři není samostatný automatizační runbook pro pravidelné zálohy.
-- Nepopisuj automatické zálohy nebo monitoring jako hotové, pokud nejsou doložené konfigurací nebo provozní dokumentací.
-
-## Zakázané/nepoužívat
-
-- Nepoužívat starý server `89.221.220.226`; je kompromitovaný a nesmí se používat.
-- Nepřenášet `sample-data` ze starého serveru do aktuálního repa.
+- Nepoužívat starý server `89.221.220.226`; je kompromitovaný a nesmí se používat ani migrovat.
+- Nepřenášet `sample-data` ze starého serveru do aktuálního repozitáře.
 - Nevystavovat API přímo na `0.0.0.0:5078`.
-- Nevkládat tajné údaje do dokumentace ani repozitáře.
+- Nepřipojovat klienty na externí port `5078`.
+- Nevkládat hesla, PINy, tokeny, privátní klíče ani citlivá data do dokumentace nebo repozitáře.
 - Nevydávat `TeacherDashboard` za hlavní učitelskou aplikaci.
-- Nevydávat HTTPS za povinný klientský endpoint, dokud se oficiálně nezmění povolený klientský `apiBaseUrl`.
+
+## Zbývající TODO
+
+- Jednoduchá nástěnka oznámení pro učitele: `Admin` publikuje krátké oznámení a `Teacher` ho po přihlášení vidí; bez chatu, odpovědí, vláken, notifikací a realtime.
+- Doména a DNS-based HTTPS.
+- Finální release balíček:
+  - Windows PowerShell verification procedure,
+  - bezpečnostní skeny,
+  - SHA-256 hash výstup,
+  - Windows code signing `StudentApp.exe`,
+  - macOS signing/notarization `TeacherApp.app`,
+  - školní schvalovací balíček pro vedení/IT.
 
 ## Struktura projektu
 
