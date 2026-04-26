@@ -528,7 +528,7 @@ public partial class MainWindow : Window
             CreateStudentStatusTextBlock.Text = onlineCreateResult.Message;
             if (!onlineCreateResult.Success || onlineCreateResult.Account is null)
             {
-                DiagnosticLogService.Log("TeacherApp", $"Online create student failed. Message: {onlineCreateResult.Message}");
+                DiagnosticLogService.Log("TeacherApp", $"Online create student failed. HasMessage={!string.IsNullOrWhiteSpace(onlineCreateResult.Message)}.");
                 HandleOnlineAuthorizationFailureIfNeeded();
                 return;
             }
@@ -541,7 +541,7 @@ public partial class MainWindow : Window
                 onlineCreateResult.Account.DisplayName,
                 onlineCreateResult.Account.LoginCode,
                 onlineCreateResult.TemporaryPin);
-            DiagnosticLogService.Log("TeacherApp", $"Online create student completed for student '{onlineCreateResult.Account.StudentId}'. Temporary credential value was not logged.");
+            DiagnosticLogService.Log("TeacherApp", $"Online create student completed. HasStudentId={!string.IsNullOrWhiteSpace(onlineCreateResult.Account.StudentId)}. Temporary credential value was not logged.");
             return;
         }
 
@@ -562,7 +562,7 @@ public partial class MainWindow : Window
 
         if (!createResult.Success || createResult.Account is null)
         {
-            DiagnosticLogService.Log("TeacherApp", $"Create student failed. Message: {createResult.Message}");
+            DiagnosticLogService.Log("TeacherApp", $"Create student failed. HasMessage={!string.IsNullOrWhiteSpace(createResult.Message)}.");
             return;
         }
 
@@ -574,7 +574,7 @@ public partial class MainWindow : Window
             createResult.Account.DisplayName,
             createResult.Account.LoginCode,
             createResult.TemporaryPin);
-        DiagnosticLogService.Log("TeacherApp", $"Create student completed for student '{createResult.Account.StudentId}'. Temporary credential value was not logged.");
+        DiagnosticLogService.Log("TeacherApp", $"Create student completed. HasStudentId={!string.IsNullOrWhiteSpace(createResult.Account.StudentId)}. Temporary credential value was not logged.");
     }
 
     private void LoadStudentsFromFolder(string folderPath, string studentIdToSelect)
@@ -769,7 +769,7 @@ public partial class MainWindow : Window
             ResetPinStatusTextBlock.Text = onlineResetResult.Message;
             if (!onlineResetResult.Success || onlineResetResult.Account is null)
             {
-                DiagnosticLogService.Log("TeacherApp", $"Online credential reset failed for student '{_selectedStudentId}'. Message: {onlineResetResult.Message}");
+                DiagnosticLogService.Log("TeacherApp", $"Online credential reset failed. HasStudentId={!string.IsNullOrWhiteSpace(_selectedStudentId)}. HasMessage={!string.IsNullOrWhiteSpace(onlineResetResult.Message)}.");
                 HandleOnlineAuthorizationFailureIfNeeded();
                 return;
             }
@@ -781,7 +781,7 @@ public partial class MainWindow : Window
                 onlineResetResult.Account.DisplayName,
                 onlineResetResult.Account.LoginCode,
                 onlineResetResult.TemporaryPin);
-            DiagnosticLogService.Log("TeacherApp", $"Online credential reset completed for student '{onlineResetResult.Account.StudentId}'. Temporary credential value was not logged.");
+            DiagnosticLogService.Log("TeacherApp", $"Online credential reset completed. HasStudentId={!string.IsNullOrWhiteSpace(onlineResetResult.Account.StudentId)}. Temporary credential value was not logged.");
             return;
         }
 
@@ -808,7 +808,7 @@ public partial class MainWindow : Window
         ResetPinStatusTextBlock.Text = resetResult.Message;
         if (!resetResult.Success || resetResult.Account is null)
         {
-            DiagnosticLogService.Log("TeacherApp", $"Credential reset failed for student '{_selectedStudentId}'. Message: {resetResult.Message}");
+            DiagnosticLogService.Log("TeacherApp", $"Credential reset failed. HasStudentId={!string.IsNullOrWhiteSpace(_selectedStudentId)}. HasMessage={!string.IsNullOrWhiteSpace(resetResult.Message)}.");
             return;
         }
 
@@ -819,7 +819,7 @@ public partial class MainWindow : Window
             resetResult.Account.DisplayName,
             resetResult.Account.LoginCode,
             resetResult.TemporaryPin);
-        DiagnosticLogService.Log("TeacherApp", $"Credential reset completed for student '{resetResult.Account.StudentId}'. Temporary credential value was not logged.");
+        DiagnosticLogService.Log("TeacherApp", $"Credential reset completed. HasStudentId={!string.IsNullOrWhiteSpace(resetResult.Account.StudentId)}. Temporary credential value was not logged.");
     }
 
     private async Task ShowTemporaryPinWindowAsync(string studentName, string loginCode, string temporaryPin)
@@ -1281,16 +1281,16 @@ public partial class MainWindow : Window
                 _configuration.DataConnection.ApiBaseUrl);
             StudentConfigStatusTextBlock.Text =
                 $"Soubor pro žáka {selectedStudent.DisplayName} byl uložen. Obsahuje server a neobsahuje PIN.";
-            DiagnosticLogService.Log("TeacherApp", $"Student config file generated for class '{classId}', student '{selectedStudent.StudentId}'.");
+            DiagnosticLogService.Log("TeacherApp", $"Student config file generated for class '{classId}', HasStudentId={!string.IsNullOrWhiteSpace(selectedStudent.StudentId)}.");
         }
         catch (ArgumentException ex)
         {
-            DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed for student '{selectedStudent.StudentId}'", ex);
+            DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed. HasStudentId={!string.IsNullOrWhiteSpace(selectedStudent.StudentId)}", ex);
             StudentConfigStatusTextBlock.Text = ex.Message;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed for student '{selectedStudent.StudentId}'", ex);
+            DiagnosticLogService.LogError("TeacherApp", $"Student config file generation failed. HasStudentId={!string.IsNullOrWhiteSpace(selectedStudent.StudentId)}", ex);
             StudentConfigStatusTextBlock.Text = "Soubor pro žáka se nepodařilo bezpečně uložit.";
         }
     }

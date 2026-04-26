@@ -397,7 +397,7 @@ public sealed class TeacherOnlineApiDataSource
 
             if (!httpResponse.IsSuccessStatusCode)
             {
-                DiagnosticLogService.Log(LogName, $"Read student results failed with HTTP {(int)httpResponse.StatusCode} for class '{_classId}', student '{studentId}'.");
+                DiagnosticLogService.Log(LogName, $"Read student results failed with HTTP {(int)httpResponse.StatusCode} for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(studentId)}.");
                 return new StudentResultsReadResult
                 {
                     Success = false,
@@ -418,7 +418,7 @@ public sealed class TeacherOnlineApiDataSource
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
         {
-            DiagnosticLogService.LogError(LogName, $"Read student results failed for class '{_classId}', student '{studentId}'", ex);
+            DiagnosticLogService.LogError(LogName, $"Read student results failed for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(studentId)}", ex);
             return new StudentResultsReadResult
             {
                 Success = false,

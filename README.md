@@ -77,6 +77,8 @@ Commit: `3f96ff2 Redact student identifiers from API logs.`
 
 Serverové auth-related logy nesmí obsahovat konkrétní jména žáků, `studentId`, `loginCode`, PIN, `newPIN`, `PinHash`, `PinSalt`, token, `Bearer` ani jiné citlivé identifikátory. Logování má používat jen obecné příznaky, například `HasConfiguredStudent`, `AccountFound`, `IsActive`, `success`, `requiresCredentialChange` a `requiresStudentConfigurationReload`.
 
+Klientské diagnostické logy ve `StudentApp` a `TeacherApp` redigují konkrétní `studentId`, session id a citlivé texty výsledků na obecné příznaky typu `HasStudentId`, `HasConfiguredStudent` a `HasMessage`.
+
 ## TeacherApp a admin správa učitelů
 
 `TeacherApp` před přihlášením nezobrazuje interní panely. Po přihlášení vidí běžný `Teacher` učitelské rozhraní bez sekce `Správa učitelů`. `Admin` vidí navíc `Správa učitelů`.

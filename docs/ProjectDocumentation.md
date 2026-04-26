@@ -93,6 +93,8 @@ Logování má používat jen obecné příznaky typu:
 - `requiresCredentialChange`,
 - `requiresStudentConfigurationReload`.
 
+Klientské diagnostické logy ve `StudentApp` a `TeacherApp` také nesmí zapisovat konkrétní `studentId`, session id ani potenciálně citlivé texty výsledků; používají jen obecné příznaky jako `HasStudentId`, `HasConfiguredStudent`, `HasMessage`, HTTP status, class a typ operace.
+
 ## Student autentizace a session token
 
 Student login endpoint:

@@ -40,7 +40,7 @@ public sealed class StudentOnlineLoginService
             var safeNewPin = newPin ?? string.Empty;
             DiagnosticLogService.Log(
                 LogName,
-                $"Online login request started for class '{_classId}', configured student '{_configuredStudentId}', endpoint '{endpoint}'.");
+                $"Online login request started for class '{_classId}', HasConfiguredStudent={!string.IsNullOrWhiteSpace(_configuredStudentId)}, endpoint '{endpoint}'.");
             var request = new StudentLoginRequest(safeLoginCode, safePin, safeNewPin, _configuredStudentId);
             var response = await _httpClient.PostAsJsonAsync(endpoint, request);
             if (response.StatusCode is System.Net.HttpStatusCode.Locked or System.Net.HttpStatusCode.TooManyRequests)

@@ -31,14 +31,14 @@ public partial class FirstRunConfigWindow : Window
         var result = _settingsService.ImportFromFile(dialog.FileName);
         if (!result.IsValid || string.IsNullOrWhiteSpace(result.StudentId))
         {
-            DiagnosticLogService.Log("StudentApp", $"First run config import failed. Message: {result.Message}");
+            DiagnosticLogService.Log("StudentApp", $"First run config import failed. HasMessage={!string.IsNullOrWhiteSpace(result.Message)}.");
             StatusTextBlock.Text = string.IsNullOrWhiteSpace(result.Message)
                 ? "Soubor se nepodařilo načíst nebo neobsahuje žáka. Zkus to prosím znovu."
                 : result.Message;
             return;
         }
 
-        DiagnosticLogService.Log("StudentApp", $"First run config imported for class '{result.ClassId}', student '{result.StudentId}'.");
+        DiagnosticLogService.Log("StudentApp", $"First run config imported for class '{result.ClassId}', HasStudentId={!string.IsNullOrWhiteSpace(result.StudentId)}.");
         DialogResult = true;
         Close();
     }

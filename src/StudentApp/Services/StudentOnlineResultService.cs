@@ -67,23 +67,23 @@ public sealed class StudentOnlineResultService
             if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
             {
                 ClearSessionAuthorization();
-                DiagnosticLogService.Log(LogName, $"Online result upload rejected with HTTP {(int)response.StatusCode} for class '{_classId}', student '{session.StudentId}'.");
+                DiagnosticLogService.Log(LogName, $"Online result upload rejected with HTTP {(int)response.StatusCode} for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(session.StudentId)}.");
                 throw new StudentSessionAuthorizationException(await ReadAuthorizationMessageAsync(response));
             }
 
             if (!response.IsSuccessStatusCode)
             {
-                DiagnosticLogService.Log(LogName, $"Online result upload failed with HTTP {(int)response.StatusCode} for class '{_classId}', student '{session.StudentId}'.");
+                DiagnosticLogService.Log(LogName, $"Online result upload failed with HTTP {(int)response.StatusCode} for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(session.StudentId)}.");
             }
 
             response.EnsureSuccessStatusCode();
             var result = await response.Content.ReadFromJsonAsync<SaveStudentResultResponse>();
-            DiagnosticLogService.Log(LogName, $"Online result upload completed for class '{_classId}', student '{session.StudentId}', session '{session.SessionId}'.");
+            DiagnosticLogService.Log(LogName, $"Online result upload completed for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(session.StudentId)}.");
             return result;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or NotSupportedException)
         {
-            DiagnosticLogService.LogError(LogName, $"Online result upload failed for class '{_classId}', student '{session.StudentId}'", ex);
+            DiagnosticLogService.LogError(LogName, $"Online result upload failed for class '{_classId}', HasStudentId={!string.IsNullOrWhiteSpace(session.StudentId)}", ex);
             throw;
         }
     }
