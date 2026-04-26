@@ -13,10 +13,12 @@ public sealed class StudentLoginViewModel : BaseViewModel
     private string _loginCode = string.Empty;
     private string _pin = string.Empty;
     private string _newPin = string.Empty;
+    private string _verifiedTemporaryPin = string.Empty;
     private string _welcomeMessage = "Zadej přihlašovací kód a PIN.";
     private string _loadedStudentFileText = "Načtený soubor pro žáka: není dostupné";
     private bool _isNewPinRequired;
     private bool _isLoginInProgress;
+    private bool _isPinVisible;
 
     public StudentLoginViewModel(
         StudentProgressService progressService,
@@ -32,6 +34,7 @@ public sealed class StudentLoginViewModel : BaseViewModel
             ? "Načtený soubor pro žáka: není dostupné"
             : $"Načtený soubor pro žáka: {_configuredStudentId}";
         LoginCommand = new RelayCommand(LoginStudent);
+        TogglePinVisibilityCommand = new RelayCommand(TogglePinVisibility);
     }
 
     public string LoginCode
@@ -67,7 +70,13 @@ public sealed class StudentLoginViewModel : BaseViewModel
     public bool IsNewPinRequired
     {
         get => _isNewPinRequired;
-        set => SetProperty(ref _isNewPinRequired, value);
+        set
+        {
+            if (SetProperty(ref _isNewPinRequired, value))
+            {
+                OnPropertyChanged(nameof(PinVisibilityButtonText));
+            }
+        }
     }
 
     public bool IsLoginInProgress
@@ -76,7 +85,24 @@ public sealed class StudentLoginViewModel : BaseViewModel
         set => SetProperty(ref _isLoginInProgress, value);
     }
 
+    public bool IsPinVisible
+    {
+        get => _isPinVisible;
+        set
+        {
+            if (SetProperty(ref _isPinVisible, value))
+            {
+                OnPropertyChanged(nameof(PinVisibilityButtonText));
+            }
+        }
+    }
+
+    public string PinVisibilityButtonText => IsNewPinRequired
+        ? IsPinVisible ? "Skrýt PINy" : "Zobrazit PINy"
+        : IsPinVisible ? "Skrýt PIN" : "Zobrazit PIN";
+
     public RelayCommand LoginCommand { get; }
+    public RelayCommand TogglePinVisibilityCommand { get; }
 
     public event EventHandler? LoggedIn;
 
@@ -84,10 +110,16 @@ public sealed class StudentLoginViewModel : BaseViewModel
     {
         _progressService.LogoutStudent();
         _onlineResultService?.ClearSessionAuthorization();
-        Pin = string.Empty;
-        NewPin = string.Empty;
+        ResetPinEntry();
+        _verifiedTemporaryPin = string.Empty;
         IsNewPinRequired = false;
         WelcomeMessage = "Zadej přihlašovací kód a PIN.";
+    }
+
+    public void ResetPinEntry()
+    {
+        ClearSensitivePinFields();
+        HidePin();
     }
 
     public async void LoginStudent()
@@ -99,11 +131,16 @@ public sealed class StudentLoginViewModel : BaseViewModel
 
         IsLoginInProgress = true;
         SharedCore.Models.StudentLoginResult result;
+        var wasNewPinRequired = IsNewPinRequired;
+        var pinForRequest = wasNewPinRequired && !string.IsNullOrWhiteSpace(_verifiedTemporaryPin)
+            ? _verifiedTemporaryPin
+            : Pin;
+        var newPinForRequest = NewPin;
         try
         {
             result = _onlineLoginService?.IsAvailable == true
-                ? await _onlineLoginService.LoginAsync(LoginCode, Pin, NewPin)
-                : _progressService.LoginStudent(LoginCode, Pin, NewPin);
+                ? await _onlineLoginService.LoginAsync(LoginCode, pinForRequest, newPinForRequest)
+                : _progressService.LoginStudent(LoginCode, pinForRequest, newPinForRequest);
         }
         catch (Exception ex)
         {
@@ -118,16 +155,29 @@ public sealed class StudentLoginViewModel : BaseViewModel
         WelcomeMessage = result.RequiresStudentConfigurationReload
             ? $"{result.Message} Klikni na Změnit žáka a načti správný soubor od paní učitelky."
             : result.Message;
-        IsNewPinRequired = result.RequiresPinChange;
 
         if (!result.Success)
         {
-            _onlineResultService?.ClearSessionAuthorization();
+            if (result.RequiresPinChange)
+            {
+                _verifiedTemporaryPin = pinForRequest;
+                IsNewPinRequired = true;
+            }
+            else
+            {
+                _verifiedTemporaryPin = string.Empty;
+                IsNewPinRequired = false;
+                _onlineResultService?.ClearSessionAuthorization();
+            }
+
+            ClearSensitivePinFields();
+            HidePin();
             return;
         }
 
-        Pin = string.Empty;
-        NewPin = string.Empty;
+        _verifiedTemporaryPin = string.Empty;
+        ClearSensitivePinFields();
+        HidePin();
         IsNewPinRequired = false;
         if (_onlineLoginService?.IsAvailable == true)
         {
@@ -139,5 +189,21 @@ public sealed class StudentLoginViewModel : BaseViewModel
         }
 
         LoggedIn?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void TogglePinVisibility()
+    {
+        IsPinVisible = !IsPinVisible;
+    }
+
+    private void HidePin()
+    {
+        IsPinVisible = false;
+    }
+
+    private void ClearSensitivePinFields()
+    {
+        Pin = string.Empty;
+        NewPin = string.Empty;
     }
 }

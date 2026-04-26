@@ -56,10 +56,73 @@
                 </StackPanel>
                 <StackPanel Margin="0,0,16,14">
                     <TextBlock Text="PIN" Style="{StaticResource FieldLabelStyle}" />
+                    <PasswordBox x:Name="PinPasswordBox"
+                                 MinWidth="150"
+                                 MaxLength="4"
+                                 PasswordChar="*"
+                                 ToolTip="PIN"
+                                 FontSize="20"
+                                 Padding="14,10"
+                                 MinHeight="48"
+                                 BorderBrush="{StaticResource SoftLineBrush}"
+                                 BorderThickness="1"
+                                 Background="{StaticResource SoftYellowBrush}"
+                                 Foreground="{StaticResource InkBrush}"
+                                 VerticalContentAlignment="Center"
+                                 PasswordChanged="OnPinPasswordChanged">
+                        <PasswordBox.Style>
+                            <Style TargetType="PasswordBox">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsNewPinRequired}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </PasswordBox.Style>
+                    </PasswordBox>
                     <TextBox MinWidth="150"
                              MaxLength="4"
                              ToolTip="PIN"
-                             Text="{Binding Pin, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding Pin, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsNewPinRequired}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <TextBox MinWidth="150"
+                             Text="****"
+                             IsEnabled="False"
+                             ToolTip="PIN ověřen"
+                             TextAlignment="Center">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsNewPinRequired}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <Button MinWidth="150"
+                            Content="{Binding PinVisibilityButtonText}"
+                            Command="{Binding TogglePinVisibilityCommand}"
+                            Style="{StaticResource QuietButtonStyle}"
+                            Margin="0,8,0,0" />
                 </StackPanel>
                 <StackPanel Margin="0,0,16,14">
                     <StackPanel.Style>
@@ -73,10 +136,46 @@
                         </Style>
                     </StackPanel.Style>
                     <TextBlock Text="Nový PIN" Style="{StaticResource FieldLabelStyle}" />
+                    <PasswordBox x:Name="NewPinPasswordBox"
+                                 MinWidth="150"
+                                 MaxLength="4"
+                                 PasswordChar="*"
+                                 ToolTip="Nový PIN"
+                                 FontSize="20"
+                                 Padding="14,10"
+                                 MinHeight="48"
+                                 BorderBrush="{StaticResource SoftLineBrush}"
+                                 BorderThickness="1"
+                                 Background="{StaticResource SoftYellowBrush}"
+                                 Foreground="{StaticResource InkBrush}"
+                                 VerticalContentAlignment="Center"
+                                 PasswordChanged="OnNewPinPasswordChanged">
+                        <PasswordBox.Style>
+                            <Style TargetType="PasswordBox">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </PasswordBox.Style>
+                    </PasswordBox>
                     <TextBox MinWidth="150"
                              MaxLength="4"
                              ToolTip="Nový PIN"
-                             Text="{Binding NewPin, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding NewPin, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPinVisible}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
                 </StackPanel>
             </WrapPanel>
 

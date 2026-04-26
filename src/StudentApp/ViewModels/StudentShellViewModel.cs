@@ -136,6 +136,7 @@ public sealed class StudentShellViewModel : BaseViewModel
 
     private void ChangeStudent()
     {
+        Login.ResetPinEntry();
         var choice = MessageBox.Show(
             "Pro změnu žáka je potřeba načíst nový soubor od paní učitelky (*.smtcfg).\n\nAno = načíst nový soubor.\nNe = zůstat u současného žáka.",
             "Změnit žáka",
